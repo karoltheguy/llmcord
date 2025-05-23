@@ -5,6 +5,9 @@ on:
     - cron: '0 8 * * *'  # Runs at 8 AM UTC daily
   workflow_dispatch:      # Allows manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -20,15 +23,17 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Add Upstream Remote
-        run: git remote add upstream https://github.com/jakobdylanc/llmcord.git
+        run: |
+          git remote | grep upstream || git remote add upstream https://github.com/jakobdylanc/llmcord.git
 
       - name: Fetch Upstream
         run: git fetch upstream
 
       - name: Merge Upstream Changes
-        run: git merge upstream/main --allow-unrelated-histories
+        run: |
+          git merge upstream/main --allow-unrelated-histories || { echo 'Merge failed. Resolve conflicts manually.'; exit 1; }
 
       - name: Push Changes
-        run: git push origin main
+        run: git push https://x-access-token:${GITHUB_TOKEN}@github.com/karoltheguy/llmcord_container.git main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

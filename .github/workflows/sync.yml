@@ -20,7 +20,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Add Upstream Remote
-        run: git remote add upstream https://github.com/jakobdylanc/llmcord/llmcord.git
+        run: git remote add upstream https://github.com/jakobdylanc/llmcord.git
 
       - name: Fetch Upstream
         run: git fetch upstream

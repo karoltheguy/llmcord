@@ -34,6 +34,6 @@ jobs:
           git merge upstream/main --allow-unrelated-histories || { echo 'Merge failed. Resolve conflicts manually.'; exit 1; }
 
       - name: Push Changes
-        run: git push https://x-access-token:${GITHUB_TOKEN}@github.com/karoltheguy/llmcord_container.git main
+        run: git push https://x-access-token:${GITHUB_TOKEN}@github.com/karoltheguy/llmcord.git main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

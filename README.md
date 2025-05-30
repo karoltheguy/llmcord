@@ -43,7 +43,7 @@ Or run a local model with:
 ...Or use any other OpenAI compatible API server.
 
 ### And more:
-- Supports image attachments when using a vision model (like gpt-4.1, claude-3, llama-4, etc.)
+- Supports image attachments when using a vision model (like gpt-4.1, claude-4, llama-4, etc.)
 - Supports text file attachments (.txt, .py, .c, etc.)
 - Customizable personality (aka system prompt)
 - User identity aware (OpenAI API and xAI API only)
@@ -82,7 +82,7 @@ Or run a local model with:
 | Setting | Description |
 | --- | --- |
 | **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openai`, `ollama`, etc.) are already included.<br />**Only supports OpenAI compatible APIs.** |
-| **model** | Set to `<provider name>/<model name>`, e.g:<br />-`openai/gpt-4.1`<br />-`ollama/llama3.3`<br />-`openrouter/anthropic/claude-3.7-sonnet` |
+| **model** | Set to `<provider name>/<model name>`, e.g:<br />-`openai/gpt-4.1`<br />-`ollama/llama4`<br />-`openrouter/anthropic/claude-sonnet-4` |
 | **extra_api_parameters** | Extra API parameters for your LLM. Add more entries as needed.<br />**Refer to your provider's documentation for supported API parameters.**<br />(Default: `temperature=1.0`) |
 | **system_prompt** | Write anything you want to customize the bot's behavior!<br />**Leave blank for no system prompt.** |
 

@@ -7,14 +7,14 @@
 </i></h3>
 
 <p align="center">
-  <img src="https://github.com/jakobdylanc/llmcord/assets/38699060/789d49fe-ef5c-470e-b60e-48ac03057443" alt="">
+  <img src="https://github.com/user-attachments/assets/7791cc6b-6755-484f-a9e3-0707765b081f" alt="">
 </p>
 
 llmcord transforms Discord into a collaborative LLM frontend. It works with practically any LLM, remote or locally hosted.
 
 ## Features
 
-### Reply-based chat system
+### Reply-based chat system:
 Just @ the bot to start a conversation and reply to continue. Build conversations with reply chains!
 
 You can:
@@ -27,7 +27,11 @@ Additionally:
 - You can branch conversations into [threads](https://support.discord.com/hc/en-us/articles/4403205878423-Threads-FAQ). Just create a thread from any message and @ the bot inside to continue.
 - Back-to-back messages from the same user are automatically chained together. Just reply to the latest one and the bot will see all of them.
 
-### Choose any LLM
+---
+
+### Model switching with `/model`:
+![image](https://github.com/user-attachments/assets/9fbb9f56-9004-4997-a864-5b2ec67bac8f)
+
 llmcord supports remote models from:
 - [OpenAI API](https://platform.openai.com/docs/models)
 - [xAI API](https://docs.x.ai/docs/models)
@@ -35,12 +39,14 @@ llmcord supports remote models from:
 - [Groq API](https://console.groq.com/docs/models)
 - [OpenRouter API](https://openrouter.ai/models)
 
-Or run a local model with:
+Or run local models with:
 - [Ollama](https://ollama.com)
 - [LM Studio](https://lmstudio.ai)
 - [vLLM](https://github.com/vllm-project/vllm)
 
 ...Or use any other OpenAI compatible API server.
+
+---
 
 ### And more:
 - Supports image attachments when using a vision model (like gpt-4.1, claude-4, llama-4, etc.)
@@ -69,22 +75,21 @@ Or run a local model with:
 | --- | --- |
 | **bot_token** | Create a new Discord bot at [discord.com/developers/applications](https://discord.com/developers/applications) and generate a token under the "Bot" tab. Also enable "MESSAGE CONTENT INTENT". |
 | **client_id** | Found under the "OAuth2" tab of the Discord bot you just made. |
-| **status_message** | Set a custom message that displays on the bot's Discord profile.<br />**Max 128 characters.** |
-| **max_text** | The maximum amount of text allowed in a single message, including text from file attachments.<br />(Default: `100,000`) |
-| **max_images** | The maximum number of image attachments allowed in a single message.<br />**Only applicable when using a vision model.**<br />(Default: `5`) |
-| **max_messages** | The maximum number of messages allowed in a reply chain. When exceeded, the oldest messages are dropped.<br />(Default: `25`) |
-| **use_plain_responses** | When set to `true` the bot will use plaintext responses instead of embeds. Plaintext responses have a shorter character limit so the bot's messages may split more often.<br />**Also disables streamed responses and warning messages.**<br />(Default: `false`) |
-| **allow_dms** | Set to `false` to disable direct message access.<br />(Default: `true`) |
-| **permissions** | Configure permissions for `users`, `roles` and `channels`, each with a list of `allowed_ids` and `blocked_ids`.<br />**Leave `allowed_ids` empty to allow ALL.**<br />**Role and channel permissions do not affect DMs.**<br />**You can use [category](https://support.discord.com/hc/en-us/articles/115001580171-Channel-Categories-101) IDs to control channel permissions in groups.** |
+| **status_message** | Set a custom message that displays on the bot's Discord profile.<br /><br />**Max 128 characters.** |
+| **max_text** | The maximum amount of text allowed in a single message, including text from file attachments. (Default: `100,000`) |
+| **max_images** | The maximum number of image attachments allowed in a single message. (Default: `5`)<br /><br />**Only applicable when using a vision model.** |
+| **max_messages** | The maximum number of messages allowed in a reply chain. When exceeded, the oldest messages are dropped. (Default: `25`) |
+| **use_plain_responses** | When set to `true` the bot will use plaintext responses instead of embeds. Plaintext responses have a shorter character limit so the bot's messages may split more often. (Default: `false`)<br /><br />**Also disables streamed responses and warning messages.** |
+| **allow_dms** | Set to `false` to disable direct message access. (Default: `true`) |
+| **permissions** | Configure permissions for `users`, `roles` and `channels`, each with a list of `allowed_ids` and `blocked_ids`.<br /><br />Control which `users` are admins with `admin_ids`. Admins can change the model with `/model` and DM the bot even if `allow_dms` is `false`.<br /><br />**Leave `allowed_ids` empty to allow ALL in that category.**<br /><br />**Role and channel permissions do not affect DMs.**<br /><br />**You can use [category](https://support.discord.com/hc/en-us/articles/115001580171-Channel-Categories-101) IDs to control channel permissions in groups.** |
 
 ### LLM settings:
 
 | Setting | Description |
 | --- | --- |
-| **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openai`, `ollama`, etc.) are already included.<br />**Only supports OpenAI compatible APIs.** |
-| **model** | Set to `<provider name>/<model name>`, e.g:<br />-`openai/gpt-4.1`<br />-`ollama/llama4`<br />-`openrouter/anthropic/claude-sonnet-4` |
-| **extra_api_parameters** | Extra API parameters for your LLM. Add more entries as needed.<br />**Refer to your provider's documentation for supported API parameters.**<br />(Default: `temperature=1.0`) |
-| **system_prompt** | Write anything you want to customize the bot's behavior!<br />**Leave blank for no system prompt.** |
+| **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openai`, `ollama`, etc.) are already included.<br /><br />**Only supports OpenAI compatible APIs.** |
+| **models** | Add the models you want to use in `<provider>/<model>: <parameters>` format (examples are included). When you run `/model` these models will show up as autocomplete suggestions.<br /><br />**Refer to each provider's documentation for supported parameters.**<br /><br />**The first model in your `models` list will be the default model at startup.** |
+| **system_prompt** | Write anything you want to customize the bot's behavior!<br /><br />**Leave blank for no system prompt.**<br /><br />**You can use the `{date}` and `{time}` tags in your system prompt to insert the current date and time, based on your host computer's time zone.** |
 
 3. Run the bot:
 

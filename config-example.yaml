@@ -59,7 +59,7 @@ models:
   openai/o3:
     reasoning_effort: high
 
-  x-ai/grok-3-latest:
+  x-ai/grok-4:
     search_parameters:
       mode: auto
 

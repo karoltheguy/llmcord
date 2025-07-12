@@ -145,7 +145,7 @@ async def on_message(new_msg: discord.Message) -> None:
     api_key = config["providers"][provider].get("api_key", "sk-no-key-required")
     openai_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
-    accept_images = any(x in provider_slash_model.lower() for x in VISION_MODEL_TAGS) or provider_slash_model.endswith(":vision")
+    accept_images = any(x in provider_slash_model.lower() for x in VISION_MODEL_TAGS)
     accept_usernames = any(x in provider_slash_model.lower() for x in PROVIDERS_SUPPORTING_USERNAMES)
 
     max_text = config.get("max_text", 100000)

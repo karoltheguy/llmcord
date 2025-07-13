@@ -139,11 +139,18 @@ async def on_message(new_msg: discord.Message) -> None:
 
     provider_slash_model = curr_model
     provider, model = provider_slash_model.removesuffix(":vision").split("/", 1)
+
+    provider_config = config["providers"][provider]
+
+    base_url = provider_config["base_url"]
+    api_key = provider_config.get("api_key", "sk-no-key-required")
+    openai_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+
     model_parameters = config["models"].get(provider_slash_model, None)
 
-    base_url = config["providers"][provider]["base_url"]
-    api_key = config["providers"][provider].get("api_key", "sk-no-key-required")
-    openai_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    extra_headers = provider_config.get("extra_headers", None)
+    extra_query = provider_config.get("extra_query", None)
+    extra_body = (provider_config.get("extra_body", None) or {}) | (model_parameters or {}) or None
 
     accept_images = any(x in provider_slash_model.lower() for x in VISION_MODEL_TAGS)
     accept_usernames = any(x in provider_slash_model.lower() for x in PROVIDERS_SUPPORTING_USERNAMES)
@@ -255,9 +262,10 @@ async def on_message(new_msg: discord.Message) -> None:
     use_plain_responses = config.get("use_plain_responses", False)
     max_message_length = 2000 if use_plain_responses else (4096 - len(STREAMING_INDICATOR))
 
+    kwargs = dict(model=model, messages=messages[::-1], stream=True, extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body)
     try:
         async with new_msg.channel.typing():
-            async for curr_chunk in await openai_client.chat.completions.create(model=model, messages=messages[::-1], stream=True, extra_body=model_parameters):
+            async for curr_chunk in await openai_client.chat.completions.create(**kwargs):
                 if finish_reason != None:
                     break
 

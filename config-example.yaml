@@ -36,6 +36,11 @@ providers:
   google:
     base_url: https://generativelanguage.googleapis.com/v1beta/openai
     api_key: 
+  azure-openai:
+    base_url: https://<resource name>.openai.azure.com/openai/deployments/<deployment name>
+    api_key: 
+    extra_query:
+      api-version: 2024-12-01-preview
   mistral:
     base_url: https://api.mistral.ai/v1
     api_key: 

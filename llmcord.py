@@ -265,11 +265,11 @@ async def on_message(new_msg: discord.Message) -> None:
     kwargs = dict(model=model, messages=messages[::-1], stream=True, extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body)
     try:
         async with new_msg.channel.typing():
-            async for curr_chunk in await openai_client.chat.completions.create(**kwargs):
+            async for chunk in await openai_client.chat.completions.create(**kwargs):
                 if finish_reason != None:
                     break
 
-                if not (choice := curr_chunk.choices[0] if curr_chunk.choices else None):
+                if not (choice := chunk.choices[0] if chunk.choices else None):
                     continue
 
                 finish_reason = choice.finish_reason

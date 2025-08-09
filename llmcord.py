@@ -308,7 +308,7 @@ async def on_message(new_msg: discord.Message) -> None:
                             msg_nodes[response_msg.id] = MsgNode(parent_msg=new_msg)
                             await msg_nodes[response_msg.id].lock.acquire()
                         else:
-                            edit_task = asyncio.create_task(response_msgs[-1].edit(embed=embed))
+                            edit_task = asyncio.create_task(response_msg.edit(embed=embed))
 
                         last_task_time = datetime.now().timestamp()
 

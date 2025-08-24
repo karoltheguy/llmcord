@@ -319,7 +319,7 @@ async def on_message(new_msg: discord.Message) -> None:
 
             if use_plain_responses:
                 for content in response_contents:
-                    await reply_helper(view=LayoutView().add_item(TextDisplay(content=content)), suppress_embeds=True)
+                    await reply_helper(view=LayoutView().add_item(TextDisplay(content=content)))
 
     except Exception:
         logging.exception("Error while generating response")

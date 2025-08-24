@@ -178,6 +178,7 @@ async def on_message(new_msg: discord.Message) -> None:
                 curr_node.text = "\n".join(
                     ([cleaned_content] if cleaned_content else [])
                     + ["\n".join(filter(None, (embed.title, embed.description, embed.footer.text))) for embed in curr_msg.embeds]
+                    + [component.content for component in curr_msg.components if component.type == discord.ComponentType.text_display]
                     + [resp.text for att, resp in zip(good_attachments, attachment_responses) if att.content_type.startswith("text")]
                 )
 
@@ -260,7 +261,7 @@ async def on_message(new_msg: discord.Message) -> None:
         embed.add_field(name=warning, value="", inline=False)
 
     use_plain_responses = config.get("use_plain_responses", False)
-    max_message_length = 2000 if use_plain_responses else (4096 - len(STREAMING_INDICATOR))
+    max_message_length = 4000 if use_plain_responses else (4096 - len(STREAMING_INDICATOR))
 
     kwargs = dict(model=model, messages=messages[::-1], stream=True, extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body)
     try:
@@ -314,8 +315,10 @@ async def on_message(new_msg: discord.Message) -> None:
 
             if use_plain_responses:
                 for content in response_contents:
+                    view = discord.ui.LayoutView().add_item(discord.ui.TextDisplay(content=content))
+
                     reply_to_msg = new_msg if response_msgs == [] else response_msgs[-1]
-                    response_msg = await reply_to_msg.reply(content=content, suppress_embeds=True)
+                    response_msg = await reply_to_msg.reply(view=view, suppress_embeds=True)
                     response_msgs.append(response_msg)
 
                     msg_nodes[response_msg.id] = MsgNode(parent_msg=new_msg)

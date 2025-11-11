@@ -16,9 +16,11 @@ permissions:
     admin_ids: []
     allowed_ids: []
     blocked_ids: []
+
   roles:
     allowed_ids: []
     blocked_ids: []
+
   channels:
     allowed_ids: []
     blocked_ids: []
@@ -33,21 +35,27 @@ providers:
     api_key: 
     extra_query:
       api-version: 2024-12-01-preview
+
   google:
     base_url: https://generativelanguage.googleapis.com/v1beta/openai
     api_key: 
+
   groq:
     base_url: https://api.groq.com/openai/v1
     api_key: 
+
   mistral:
     base_url: https://api.mistral.ai/v1
     api_key: 
+
   openai:
     base_url: https://api.openai.com/v1
     api_key: 
+
   openrouter:
     base_url: https://openrouter.ai/api/v1
     api_key: 
+
   x-ai:
     base_url: https://api.x.ai/v1
     api_key: 
@@ -55,8 +63,10 @@ providers:
   # Local providers:
   lmstudio:
     base_url: http://localhost:1234/v1
+
   ollama:
     base_url: http://localhost:11434/v1
+
   vllm:
     base_url: http://localhost:8000/v1
 
@@ -65,14 +75,7 @@ models:
     reasoning_effort: high
     verbosity: medium
 
-  x-ai/grok-4:
-    search_parameters:
-      mode: auto
-
-  google/gemini-2.5-pro:
-    reasoning_effort: high
-
-  openrouter/anthropic/claude-sonnet-4:
+  openrouter/x-ai/grok-4-fast:online:
 
   ollama/llama4:
 

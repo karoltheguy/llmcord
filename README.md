@@ -59,7 +59,7 @@ Or run local models with:
 - Displays helpful warnings when appropriate (like "⚠️ Only using last 25 messages" when the customizable message limit is exceeded)
 - Caches message data in a size-managed (no memory leaks) and mutex-protected (no race conditions) global dictionary to maximize efficiency and minimize Discord API calls
 - Fully asynchronous
-- 1 Python file, ~200 lines of code
+- 1 Python file, ~300 lines of code
 
 ## Instructions
 

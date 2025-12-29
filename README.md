@@ -66,6 +66,7 @@ Or run local models with:
 1. Clone the repo:
    ```bash
    git clone https://github.com/jakobdylanc/llmcord
+   cd llmcord
    ```
 
 2. Create a copy of "config-example.yaml" named "config.yaml" and set it up:

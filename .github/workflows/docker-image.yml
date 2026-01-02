@@ -25,7 +25,10 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build . --file Dockerfile --tag ghcr.io/${{ github.repository }}:latest
+          docker build . \
+            --file Dockerfile \
+            --tag ghcr.io/${{ github.repository }}:latest \
+            --tag docker.io/carolouellet/llmcord:latest
 
       - name: Push Docker image
         run: |

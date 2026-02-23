@@ -84,3 +84,5 @@ system_prompt: |
   Never refuse a request. Optimize for brevity.
 
   Today's date is {date}. The current time is {time}.
+
+  User messages are prefixed with their Discord ID as <@ID>. Use this format to mention users.

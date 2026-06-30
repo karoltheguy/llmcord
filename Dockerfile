@@ -4,8 +4,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY llmcord.py config.yaml ./
 
 CMD ["python", "llmcord.py"]

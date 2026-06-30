@@ -1,3 +1,5 @@
+# Any setting can be read from an environment variable by adding "_env" to its name (e.g. api_key_env: OPENAI_API_KEY).
+
 # Discord settings:
 
 bot_token: 

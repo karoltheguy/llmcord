@@ -10,9 +10,12 @@ import discord
 from discord.app_commands import Choice
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay
+from dotenv import load_dotenv
 import httpx
 from openai import AsyncOpenAI
 import yaml
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,

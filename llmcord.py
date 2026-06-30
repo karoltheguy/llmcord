@@ -35,7 +35,7 @@ MAX_MESSAGE_NODES = 500
 
 def resolve_env(node: Any) -> Any:
     if isinstance(node, dict):
-        return {key.removesuffix("_env"): os.environ[value] if key.endswith("_env") else resolve_env(value) for key, value in node.items()}
+        return {key.removesuffix("_env"): os.environ.get(value) if key.endswith("_env") else resolve_env(value) for key, value in node.items()}
     return node
 
 

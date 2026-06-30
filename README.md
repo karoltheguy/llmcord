@@ -33,19 +33,17 @@ Additionally:
 ![image](https://github.com/user-attachments/assets/568e2f5c-bf32-4b77-ab57-198d9120f3d2)
 
 llmcord supports remote models from:
-- [OpenAI API](https://platform.openai.com/docs/models)
-- [xAI API](https://docs.x.ai/docs/models)
-- [Google Gemini API](https://ai.google.dev/gemini-api/docs/models)
-- [Mistral API](https://docs.mistral.ai/getting-started/models/models_overview)
-- [Groq API](https://console.groq.com/docs/models)
-- [OpenRouter API](https://openrouter.ai/models)
+- [OpenRouter](https://openrouter.ai/models)
+- [OpenAI](https://platform.openai.com/docs/models)
+- [xAI](https://docs.x.ai/docs/models)
+- [Google](https://ai.google.dev/gemini-api/docs/models)
 
 Or run local models with:
-- [Ollama](https://ollama.com)
 - [LM Studio](https://lmstudio.ai)
+- [Ollama](https://ollama.com)
 - [vLLM](https://github.com/vllm-project/vllm)
 
-...Or use any other OpenAI compatible API server.
+...Or use any other OpenAI /v1/chat/completions compatible API server.
 
 ---
 
@@ -89,7 +87,7 @@ Or run local models with:
 
 | Setting | Description |
 | --- | --- |
-| **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openai`, `openrouter`, `ollama`, etc.) are already included.<br /><br />**Only supports OpenAI compatible APIs.**<br /><br />**Some providers may need `extra_headers` / `extra_query` / `extra_body` entries for extra HTTP data. See the included `azure-openai` provider for an example.** |
+| **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openrouter`, `openai`, `ollama`, etc.) are already included.<br /><br />**Only supports OpenAI /v1/chat/completions compatible APIs.**<br /><br />**Some providers may need `extra_headers` / `extra_query` / `extra_body` entries for extra HTTP data. See the included `azure-openai` provider for an example.** |
 | **models** | Add the models you want to use in `<provider>/<model>: <parameters>` format (examples are included). When you run `/model` these models will show up as autocomplete suggestions.<br /><br />**Refer to each provider's documentation for supported parameters.**<br /><br />**The first model in your `models` list will be the default model at startup.**<br /><br />**Some vision models may need `:vision` added to the end of their name to enable image support.** |
 | **system_prompt** | Write anything you want to customize the bot's behavior!<br /><br />**Leave blank for no system prompt.**<br /><br />**You can use the `{date}` and `{time}` tags in your system prompt to insert the current date and time, based on your host computer's time zone.**<br /><br />**It is recommended to include something like `"User messages are prefixed with their Discord ID as <@ID>. Use this format to mention users."` in your system prompt to help the bot understand the user message format.** |
 

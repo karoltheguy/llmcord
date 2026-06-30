@@ -1,6 +1,7 @@
 # Any setting can be read from an environment variable by adding "_env" to its name (e.g. api_key_env: OPENAI_API_KEY).
+# This file is committed to git, so keep sensitive values in environment variables.
 
-bot_token: 
+bot_token_env: DISCORD_BOT_TOKEN
 client_id: 
 status_message: 
 
@@ -29,23 +30,23 @@ permissions:
 providers:
   openrouter:
     base_url: https://openrouter.ai/api/v1
-    api_key: 
+    api_key_env: OPENROUTER_API_KEY
 
   openai:
     base_url: https://api.openai.com/v1
-    api_key: 
+    api_key_env: OPENAI_API_KEY
 
   x-ai:
     base_url: https://api.x.ai/v1
-    api_key: 
+    api_key_env: X_AI_API_KEY
 
   google:
     base_url: https://generativelanguage.googleapis.com/v1beta/openai
-    api_key: 
+    api_key_env: GEMINI_API_KEY
 
   azure-openai:
     base_url: https://<resource name>.openai.azure.com/openai/deployments/<deployment name>
-    api_key: 
+    api_key_env: AZURE_OPENAI_API_KEY
     extra_query:
       api-version: 2024-12-01-preview
 

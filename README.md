@@ -67,7 +67,7 @@ Or run local models with:
    cd llmcord
    ```
 
-2. Create a copy of "config-example.yaml" named "config.yaml" and set it up:
+2. Set up `config.yaml`:
 
 ### Discord settings:
 

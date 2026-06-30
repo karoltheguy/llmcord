@@ -69,6 +69,8 @@ Or run local models with:
 
 2. Set up `config.yaml`:
 
+> Any setting can be read from an environment variable by appending `_env` to its name (e.g. `bot_token_env: DISCORD_BOT_TOKEN`).
+
 ### Discord settings:
 
 | Setting | Description |

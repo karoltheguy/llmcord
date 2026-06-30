@@ -1,7 +1,5 @@
 # Any setting can be read from an environment variable by adding "_env" to its name (e.g. api_key_env: OPENAI_API_KEY).
 
-# Discord settings:
-
 bot_token: 
 client_id: 
 status_message: 
@@ -28,10 +26,7 @@ permissions:
     blocked_ids: []
 
 
-# LLM settings:
-
 providers:
-  # Remote providers:
   azure-openai:
     base_url: https://<resource name>.openai.azure.com/openai/deployments/<deployment name>
     api_key: 
@@ -62,7 +57,6 @@ providers:
     base_url: https://api.x.ai/v1
     api_key: 
 
-  # Local providers:
   lmstudio:
     base_url: http://localhost:1234/v1
 

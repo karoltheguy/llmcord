@@ -3,15 +3,19 @@ from base64 import b64encode
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
+import os
 from typing import Any, Literal, Optional
 
 import discord
 from discord.app_commands import Choice
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay
+from dotenv import load_dotenv
 import httpx
 from openai import AsyncOpenAI
 import yaml
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,9 +33,15 @@ EDIT_DELAY_SECONDS = 1
 MAX_MESSAGE_NODES = 500
 
 
+def resolve_env(node: Any) -> Any:
+    if isinstance(node, dict):
+        return {key.removesuffix("_env"): os.environ.get(value) if key.endswith("_env") else resolve_env(value) for key, value in node.items()}
+    return node
+
+
 def get_config(filename: str = "config.yaml") -> dict[str, Any]:
     with open(filename, encoding="utf-8") as file:
-        return yaml.safe_load(file)
+        return resolve_env(yaml.safe_load(file))
 
 
 config = get_config()

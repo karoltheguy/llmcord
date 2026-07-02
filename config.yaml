@@ -1,5 +1,8 @@
+# Any setting can be read from an environment variable by appending "_env" to its name (e.g. bot_token_env: DISCORD_BOT_TOKEN).
+
 bot_token_env: DISCORD_BOT_TOKEN
-client_id: 
+client_id_env: DISCORD_CLIENT_ID
+
 status_message: 
 
 max_text: 100000
@@ -22,7 +25,6 @@ permissions:
   channels:
     allowed_ids: []
     blocked_ids: []
-
 
 providers:
   openrouter:

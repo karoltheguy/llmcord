@@ -3,5 +3,8 @@ services:
     build: .
     network_mode: host
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - ./:/app:ro

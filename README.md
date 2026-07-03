@@ -14,8 +14,10 @@ llmcord transforms Discord into a collaborative LLM frontend. It works with prac
 
 ## Features
 
-### Reply-based chat system:
+### Reply-based conversations:
 Just @ the bot to start a conversation and reply to continue. Build conversations with reply chains!
+
+The reply chain is the conversation history, stored entirely in Discord. No database required.
 
 You can:
 - Branch conversations endlessly

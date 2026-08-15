@@ -1,13 +1,46 @@
 # This gitignore is a whitelist. Inspired by https://rgbcu.be/blog/gitignore
+#
+# Everything is ignored, then specific things are re-included.
+#
+# "!*/" is load-bearing. The "*" pattern matches directories too, and git does
+# not descend into an ignored directory, so without "!*/" none of the re-includes
+# below can ever match a file inside a subdirectory (tests/, .github/workflows/).
 
 *
+!*/
 
 !.gitignore
 
 !*.md
 !*.py
+!*.toml
+!*.yml
 
 !Dockerfile
 !config.yaml
 !docker-compose.yaml
 !requirements.txt
+!requirements-dev.txt
+
+# Re-ignored below. Now that git descends into subdirectories, these have to be
+# excluded explicitly or their contents would match the re-includes above.
+# A virtualenv is the dangerous one: it is full of .py files.
+.venv/
+venv/
+env/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secrets and local state
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+
+# Editors
+.vscode/
+.idea/

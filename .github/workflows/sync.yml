@@ -7,6 +7,11 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -15,29 +20,52 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add Upstream Remote
-        run: |
-          git remote | grep upstream || git remote add upstream https://github.com/jakobdylanc/llmcord.git
-
       - name: Fetch Upstream
-        run: git fetch upstream
-
-      - name: Merge Upstream Changes (always favor upstream)
         run: |
-          git merge -X theirs upstream/main --allow-unrelated-histories || {
-            git checkout --theirs .
-            git add .
-            git commit -m "Resolve merge conflicts in favor of upstream"
-          }
+          git remote get-url upstream || git remote add upstream https://github.com/jakobdylanc/llmcord.git
+          git fetch upstream main
 
-      - name: Push Changes
-        run: git push https://x-access-token:${GITHUB_TOKEN}@github.com/karoltheguy/llmcord.git main
+      - name: Check for New Upstream Commits
+        id: check
+        run: |
+          if [ -z "$(git log HEAD..upstream/main --oneline)" ]; then
+            echo "Already up to date with upstream."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New upstream commits:"
+            git log HEAD..upstream/main --oneline
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge Upstream into Sync Branch
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git checkout -B sync/upstream
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "::error::Merge conflict with upstream/main. Resolve it locally, then push."
+            exit 1
+          fi
+          git push --force-with-lease origin sync/upstream
+
+      - name: Open Pull Request
+        if: steps.check.outputs.has_changes == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "$(gh pr list --head sync/upstream --base main --state open --json number --jq '.[].number')" ]; then
+            echo "Pull request already open; the branch push updated it."
+            exit 0
+          fi
+          gh pr create \
+            --base main \
+            --head sync/upstream \
+            --title "chore(sync): merge upstream changes" \
+            --body "Automated sync with jakobdylanc/llmcord. Review the diff before merging; local changes are no longer overwritten silently."

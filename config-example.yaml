@@ -11,6 +11,9 @@ max_messages: 25
 use_plain_responses: false
 allow_dms: true
 
+# Per-user memory is stored here. The path is relative to the working directory.
+memory_db_path: data/memory.db
+
 permissions:
   users:
     admin_ids: []

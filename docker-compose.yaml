@@ -8,3 +8,5 @@ services:
         required: false
     volumes:
       - ./:/app:ro
+      # The bind above is read-only, so memory needs its own writable mount.
+      - ./data:/app/data

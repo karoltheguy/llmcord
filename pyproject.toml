@@ -1,3 +1,6 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Modules under test live at the repo root. Bare `pytest` does not put the
+# working directory on sys.path the way `python -m pytest` does.
+pythonpath = ["."]

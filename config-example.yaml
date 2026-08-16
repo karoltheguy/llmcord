@@ -11,6 +11,10 @@ max_messages: 25
 use_plain_responses: false
 allow_dms: true
 
+# When true, a mention continues the recent conversation in that channel instead of starting a new one.
+# Set to false to restore upstream behavior.
+implicit_public_chaining: true
+
 # Per-user memory. Off by default: nothing writes memory yet, so turning it on
 # has no effect until the extraction pass exists.
 memory_enabled: false

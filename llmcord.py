@@ -15,6 +15,7 @@ import httpx
 from openai import AsyncOpenAI
 import yaml
 
+from conversation import should_chain_to_previous
 from memory_store import MemoryStore
 from prompt import build_system_prompt
 
@@ -211,10 +212,21 @@ async def on_message(new_msg: discord.Message) -> None:
                 try:
                     if (
                         curr_msg.reference == None
-                        and discord_bot.user.mention not in curr_msg.content
                         and (prev_msg_in_channel := ([m async for m in curr_msg.channel.history(before=curr_msg, limit=1)] or [None])[0])
                         and prev_msg_in_channel.type in (discord.MessageType.default, discord.MessageType.reply)
-                        and prev_msg_in_channel.author == (discord_bot.user if curr_msg.channel.type == discord.ChannelType.private else curr_msg.author)
+                        and should_chain_to_previous(
+                            is_dm=curr_msg.channel.type == discord.ChannelType.private,
+                            content_mentions_bot=discord_bot.user.mention in curr_msg.content,
+                            prev_author_id=prev_msg_in_channel.author.id,
+                            curr_author_id=curr_msg.author.id,
+                            bot_id=discord_bot.user.id,
+                            prev_answered_author_id=(
+                                prev_parent.author.id
+                                if (prev_node := msg_nodes.get(prev_msg_in_channel.id)) and (prev_parent := prev_node.parent_msg)
+                                else None
+                            ),
+                            implicit_public_chaining=config.get("implicit_public_chaining", True),
+                        )
                     ):
                         curr_node.parent_msg = prev_msg_in_channel
                     else:

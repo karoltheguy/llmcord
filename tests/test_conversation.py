@@ -1,4 +1,4 @@
-from conversation import should_chain_to_previous
+from conversation import build_user_prefix, should_chain_to_previous
 
 
 def test_public_mention_chains_to_bot_reply_for_the_same_author():
@@ -166,4 +166,32 @@ def test_no_previous_message_never_chains():
             implicit_public_chaining=True,
         )
         is False
+    )
+
+
+def test_build_user_prefix_includes_mention_and_name_and_ends_with_colon():
+    prefix = build_user_prefix(user_id=42, display_name="Carol")
+    assert "<@42>" in prefix
+    assert "Carol" in prefix
+    assert prefix.endswith(": ")
+
+
+def test_build_user_prefix_with_none_display_name_returns_mention_only():
+    assert build_user_prefix(user_id=42, display_name=None) == "<@42>: "
+
+
+def test_build_user_prefix_with_whitespace_display_name_returns_mention_only():
+    assert build_user_prefix(user_id=42, display_name="   ") == "<@42>: "
+
+
+def test_build_user_prefix_truncates_long_display_name():
+    prefix = build_user_prefix(user_id=42, display_name="N" * 500, max_name=10)
+    assert "N" * 10 in prefix
+    assert "N" * 11 not in prefix
+
+
+def test_build_user_prefix_strips_surrounding_whitespace():
+    assert (
+        build_user_prefix(user_id=42, display_name="  Carol  ")
+        == build_user_prefix(user_id=42, display_name="Carol")
     )

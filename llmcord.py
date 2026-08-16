@@ -15,7 +15,7 @@ import httpx
 from openai import AsyncOpenAI
 import yaml
 
-from conversation import should_chain_to_previous
+from conversation import build_user_prefix, should_chain_to_previous
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
 from prompt import build_system_prompt
@@ -228,7 +228,10 @@ async def on_message(new_msg: discord.Message) -> None:
                 ]
 
                 if curr_node.role == "user" and (curr_node.text or curr_node.images):
-                    curr_node.text = f"<@{curr_msg.author.id}>: {curr_node.text}"
+                    curr_node.text = build_user_prefix(
+                        user_id=curr_msg.author.id,
+                        display_name=getattr(curr_msg.author, "display_name", None),
+                    ) + curr_node.text
 
                 curr_node.has_bad_attachments = len(curr_msg.attachments) > len(good_attachments)
 

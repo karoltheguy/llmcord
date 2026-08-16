@@ -435,7 +435,8 @@ async def main() -> None:
     await discord_bot.start(config["bot_token"])
 
 
-try:
-    asyncio.run(main())
-except KeyboardInterrupt:
-    pass
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

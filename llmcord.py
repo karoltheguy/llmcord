@@ -16,6 +16,7 @@ from openai import AsyncOpenAI
 import yaml
 
 from conversation import should_chain_to_previous
+from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
 from prompt import build_system_prompt
 
@@ -53,6 +54,7 @@ curr_model = next(iter(config["models"]))
 
 msg_nodes = {}
 last_task_time = 0
+background_tasks = set()
 
 memory_store = MemoryStore(config.get("memory_db_path", "data/memory.db")) if config.get("memory_enabled", False) else None
 
@@ -117,6 +119,33 @@ async def on_ready() -> None:
     await discord_bot.tree.sync()
 
 
+def make_openai_client(config: dict[str, Any], provider_slash_model: str) -> tuple[AsyncOpenAI, str, dict[str, Any]]:
+    provider, model = provider_slash_model.removesuffix(":vision").split("/", 1)
+    provider_config = config["providers"][provider]
+    return AsyncOpenAI(base_url=provider_config["base_url"], api_key=provider_config.get("api_key", "sk-no-key-required")), model, provider_config
+
+
+async def update_user_memory(config: dict[str, Any], user_id: int, exchange: str) -> None:
+    try:
+        if not memory_store or not config.get("memory_model") or not exchange:
+            return
+
+        openai_client, model, _ = make_openai_client(config, config["memory_model"])
+        existing_memory = await memory_store.get(user_id)
+        updated = await extract_memory(
+            client=openai_client,
+            model=model,
+            existing_memory=existing_memory,
+            exchange=exchange,
+            prompt=config.get("memory_extraction_prompt") or DEFAULT_EXTRACTION_PROMPT,
+            max_chars=config.get("max_memory_text", 2000),
+        )
+        if updated is not None:
+            await memory_store.upsert(user_id, updated)
+    except Exception:
+        logging.exception("Error while updating user memory")
+
+
 @discord_bot.event
 async def on_message(new_msg: discord.Message) -> None:
     global last_task_time
@@ -153,13 +182,7 @@ async def on_message(new_msg: discord.Message) -> None:
         return
 
     provider_slash_model = curr_model
-    provider, model = provider_slash_model.removesuffix(":vision").split("/", 1)
-
-    provider_config = config["providers"][provider]
-
-    base_url = provider_config["base_url"]
-    api_key = provider_config.get("api_key", "sk-no-key-required")
-    openai_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    openai_client, model, provider_config = make_openai_client(config, provider_slash_model)
 
     model_parameters = config["models"].get(provider_slash_model, None)
 
@@ -344,6 +367,11 @@ async def on_message(new_msg: discord.Message) -> None:
     for response_msg in response_msgs:
         msg_nodes[response_msg.id].text = "".join(response_contents)
         msg_nodes[response_msg.id].lock.release()
+
+    if response_contents:
+        task = asyncio.create_task(update_user_memory(config, new_msg.author.id, f"User:\n{msg_nodes[new_msg.id].text}\n\nAssistant:\n{''.join(response_contents)}"))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
 
     # Delete oldest MsgNodes (lowest message IDs) from the cache
     if (num_nodes := len(msg_nodes)) > MAX_MESSAGE_NODES:

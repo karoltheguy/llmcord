@@ -1,3 +1,11 @@
+def build_user_prefix(*, user_id: int, display_name: str | None, max_name: int = 64) -> str:
+    """Build the user mention and display name prefix for a message."""
+    name = (display_name or "").strip()
+    if not name:
+        return f"<@{user_id}>: "
+    return f"<@{user_id}> ({name[:max_name]}): "
+
+
 def should_chain_to_previous(
     *,
     is_dm: bool,

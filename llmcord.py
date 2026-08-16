@@ -16,6 +16,7 @@ from openai import AsyncOpenAI
 import yaml
 
 from conversation import build_user_prefix, should_chain_to_previous
+from memory_commands import forget_memory, read_memory
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
 from prompt import build_system_prompt
@@ -109,6 +110,48 @@ async def model_autocomplete(interaction: discord.Interaction, curr_str: str) ->
     choices += [Choice(name=f"○ {model}", value=model) for model in config["models"] if model != curr_model and curr_str.lower() in model.lower()]
 
     return choices[:25]
+
+
+@discord_bot.tree.command(name="memory", description="View what the bot has stored about you")
+async def memory_command(interaction: discord.Interaction) -> None:
+    if memory_store is None:
+        await interaction.response.send_message("Memory is disabled on this bot.", ephemeral=True)
+        return
+    output = await read_memory(memory_store, interaction.user.id)
+    await interaction.response.send_message(output, ephemeral=True)
+
+
+class ForgetConfirmView(discord.ui.View):
+    def __init__(self, user_id: int) -> None:
+        super().__init__(timeout=60)
+        self.user_id = user_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id == self.user_id:
+            return True
+        await interaction.response.send_message("This isn't your confirmation.", ephemeral=True)
+        return False
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        output = await forget_memory(memory_store, self.user_id)
+        await interaction.response.edit_message(content=output, view=None)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.edit_message(content="Cancelled. Nothing was deleted.", view=None)
+
+
+@discord_bot.tree.command(name="forget", description="Delete everything the bot has stored about you")
+async def forget_command(interaction: discord.Interaction) -> None:
+    if memory_store is None:
+        await interaction.response.send_message("Memory is disabled on this bot.", ephemeral=True)
+        return
+    await interaction.response.send_message(
+        "This will permanently delete everything I have stored about you. Are you sure?",
+        view=ForgetConfirmView(interaction.user.id),
+        ephemeral=True,
+    )
 
 
 @discord_bot.event

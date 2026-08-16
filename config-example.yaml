@@ -11,8 +11,11 @@ max_messages: 25
 use_plain_responses: false
 allow_dms: true
 
-# Per-user memory is stored here. The path is relative to the working directory.
+# Per-user memory. Off by default: nothing writes memory yet, so turning it on
+# has no effect until the extraction pass exists.
+memory_enabled: false
 memory_db_path: data/memory.db
+max_memory_text: 2000
 
 permissions:
   users:

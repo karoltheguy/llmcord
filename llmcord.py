@@ -15,6 +15,9 @@ import httpx
 from openai import AsyncOpenAI
 import yaml
 
+from memory_store import MemoryStore
+from prompt import build_system_prompt
+
 load_dotenv()
 
 logging.basicConfig(
@@ -49,6 +52,8 @@ curr_model = next(iter(config["models"]))
 
 msg_nodes = {}
 last_task_time = 0
+
+memory_store = MemoryStore(config.get("memory_db_path", "data/memory.db")) if config.get("memory_enabled", False) else None
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -247,11 +252,9 @@ async def on_message(new_msg: discord.Message) -> None:
 
     logging.info(f"Message received (user ID: {new_msg.author.id}, attachments: {len(new_msg.attachments)}, conversation length: {len(messages)}):\n{new_msg.content}")
 
-    if system_prompt := config.get("system_prompt"):
-        now = datetime.now().astimezone()
+    memory = await memory_store.get(new_msg.author.id) if memory_store else None
 
-        system_prompt = system_prompt.replace("{date}", now.strftime("%B %d %Y")).replace("{time}", now.strftime("%H:%M:%S %Z%z")).strip()
-
+    if system_prompt := build_system_prompt(config.get("system_prompt"), datetime.now().astimezone(), memory=memory, max_memory_text=config.get("max_memory_text", 2000)):
         messages.append(dict(role="system", content=system_prompt))
 
     # Generate and send response message(s) (can be multiple if response is long)
@@ -338,6 +341,9 @@ async def on_message(new_msg: discord.Message) -> None:
 
 
 async def main() -> None:
+    if memory_store:
+        await memory_store.initialize()
+
     await discord_bot.start(config["bot_token"])
 
 

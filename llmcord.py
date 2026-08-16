@@ -16,7 +16,7 @@ from openai import AsyncOpenAI
 import yaml
 
 from conversation import build_user_prefix, should_chain_to_previous
-from memory_commands import forget_memory, read_memory
+from memory_commands import current_epoch, forget_memory, may_write_memory, read_memory
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
 from prompt import build_system_prompt
@@ -56,6 +56,7 @@ curr_model = next(iter(config["models"]))
 msg_nodes = {}
 last_task_time = 0
 background_tasks = set()
+forget_epochs: dict[int, int] = {}
 
 memory_store = MemoryStore(config.get("memory_db_path", "data/memory.db")) if config.get("memory_enabled", False) else None
 
@@ -134,7 +135,7 @@ class ForgetConfirmView(discord.ui.View):
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        output = await forget_memory(memory_store, self.user_id)
+        output = await forget_memory(memory_store, self.user_id, forget_epochs)
         await interaction.response.edit_message(content=output, view=None)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
@@ -174,6 +175,7 @@ async def update_user_memory(config: dict[str, Any], user_id: int, exchange: str
             return
 
         openai_client, model, _ = make_openai_client(config, config["memory_model"])
+        epoch_at_start = current_epoch(forget_epochs, user_id)
         existing_memory = await memory_store.get(user_id)
         updated = await extract_memory(
             client=openai_client,
@@ -183,7 +185,7 @@ async def update_user_memory(config: dict[str, Any], user_id: int, exchange: str
             prompt=config.get("memory_extraction_prompt") or DEFAULT_EXTRACTION_PROMPT,
             max_chars=config.get("max_memory_text", 2000),
         )
-        if updated is not None:
+        if updated is not None and may_write_memory(forget_epochs, user_id, epoch_at_start):
             await memory_store.upsert(user_id, updated)
     except Exception:
         logging.exception("Error while updating user memory")

@@ -24,6 +24,21 @@ async def read_memory(store, user_id: int, limit: int = 2000) -> str:
     return format_memory_reply(await store.get(user_id), limit)
 
 
-async def forget_memory(store, user_id: int) -> str:
+def current_epoch(epochs: dict[int, int], user_id: int) -> int:
+    return epochs.get(user_id, 0)
+
+
+def bump_epoch(epochs: dict[int, int], user_id: int) -> int:
+    epochs[user_id] = epochs.get(user_id, 0) + 1
+    return epochs[user_id]
+
+
+def may_write_memory(epochs: dict[int, int], user_id: int, epoch_at_start: int) -> bool:
+    return current_epoch(epochs, user_id) == epoch_at_start
+
+
+async def forget_memory(store, user_id: int, epochs: dict[int, int] | None = None) -> str:
+    if epochs is not None:
+        bump_epoch(epochs, user_id)
     await store.delete(user_id)
     return FORGET_DONE_MESSAGE

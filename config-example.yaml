@@ -20,6 +20,10 @@ implicit_public_chaining: true
 memory_enabled: false
 memory_db_path: data/memory.db
 max_memory_text: 2000
+# Memory extraction is off unless this is set.
+# memory_model: openai/gpt-4o-mini
+# Overrides the built-in default extraction prompt.
+# memory_extraction_prompt:
 
 permissions:
   users:

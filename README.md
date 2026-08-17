@@ -14,33 +14,39 @@ llmcord transforms Discord into a collaborative LLM frontend. It works with prac
 
 ## Features
 
-### Reply-based conversations:
+### Reply-based conversations
+
 Just @ the bot to start a conversation and reply to continue. Build conversations with reply chains!
 
 The reply chain is the conversation history, stored entirely in Discord. No database required.
 
 You can:
+
 - Branch conversations endlessly
 - Continue other people's conversations
 - @ the bot while replying to ANY message to include it in the conversation
 
 Additionally:
+
 - When DMing the bot, conversations continue automatically (no reply required). To start a fresh conversation, just @ the bot. You can still reply to continue from anywhere.
 - You can branch conversations into [threads](https://support.discord.com/hc/en-us/articles/4403205878423-Threads-FAQ). Just create a thread from any message and @ the bot inside to continue.
 - Back-to-back messages from the same user are automatically chained together. Just reply to the latest one and the bot will see all of them.
 
 ---
 
-### Model switching with `/model`:
+### Model switching with `/model`
+
 ![image](https://github.com/user-attachments/assets/568e2f5c-bf32-4b77-ab57-198d9120f3d2)
 
 llmcord supports remote models from:
+
 - [OpenRouter](https://openrouter.ai/models)
 - [OpenAI](https://platform.openai.com/docs/models)
 - [xAI](https://docs.x.ai/docs/models)
 - [Google](https://ai.google.dev/gemini-api/docs/models)
 
 Or run local models with:
+
 - [LM Studio](https://lmstudio.ai)
 - [Ollama](https://ollama.com)
 - [vLLM](https://github.com/vllm-project/vllm)
@@ -49,7 +55,8 @@ Or run local models with:
 
 ---
 
-### And more:
+### And more
+
 - Supports image attachments when using a vision model (like gpt-5, grok-4, claude-4, etc.)
 - Supports text file attachments (.txt, .py, .c, etc.)
 - Customizable personality (aka system prompt)
@@ -73,7 +80,7 @@ Or run local models with:
 
 > Any setting can be read from an environment variable by appending `_env` to its name (e.g. `bot_token_env: DISCORD_BOT_TOKEN`).
 
-### Discord settings:
+### Discord settings
 
 | Setting | Description |
 | --- | --- |
@@ -87,7 +94,7 @@ Or run local models with:
 | **allow_dms** | Set to `false` to disable direct message access.<br /><br />Default: `true` |
 | **permissions** | Configure access permissions for `users`, `roles` and `channels`, each with a list of `allowed_ids` and `blocked_ids`.<br /><br />Control which `users` are admins with `admin_ids`. Admins can change the model with `/model` and DM the bot even if `allow_dms` is `false`.<br /><br />**Leave `allowed_ids` empty to allow ALL in that category.**<br /><br />**Role and channel permissions do not affect DMs.**<br /><br />**You can use [category](https://support.discord.com/hc/en-us/articles/115001580171-Channel-Categories-101) IDs to control channel permissions in groups.** |
 
-### LLM settings:
+### LLM settings
 
 | Setting | Description |
 | --- | --- |

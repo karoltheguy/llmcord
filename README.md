@@ -76,7 +76,23 @@ Or run local models with:
    cd llmcord
    ```
 
-2. Set up `config.yaml`:
+2. Set up `config.yaml`. Every available setting is listed under
+   [Configuration](#configuration) below.
+
+3. Run the bot:
+
+   **No Docker:**
+   ```bash
+   python -m pip install -U -r requirements.txt
+   python llmcord.py
+   ```
+
+   **With Docker:**
+   ```bash
+   docker compose up
+   ```
+
+## Configuration
 
 > Any setting can be read from an environment variable by appending `_env` to its name (e.g. `bot_token_env: DISCORD_BOT_TOKEN`).
 
@@ -101,19 +117,6 @@ Or run local models with:
 | **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openrouter`, `openai`, `ollama`, etc.) are already included.<br /><br />**Only supports OpenAI /v1/chat/completions compatible APIs.**<br /><br />**Some providers may need `extra_headers` / `extra_query` / `extra_body` entries for extra HTTP data. See the included `azure-openai` provider for an example.** |
 | **models** | Add the models you want to use in `<provider>/<model>: <parameters>` format (examples are included). When you run `/model` these models will show up as autocomplete suggestions.<br /><br />**Refer to each provider's documentation for supported parameters.**<br /><br />**The first model in your `models` list will be the default model at startup.**<br /><br />**Some vision models may need `:vision` added to the end of their name to enable image support.** |
 | **system_prompt** | Write anything you want to customize the bot's behavior!<br /><br />**Leave blank for no system prompt.**<br /><br />**You can use the `{date}` and `{time}` tags in your system prompt to insert the current date and time, based on your host computer's time zone.**<br /><br />**It is recommended to include something like `"User messages are prefixed with their Discord ID as <@ID>. Use this format to mention users."` in your system prompt to help the bot understand the user message format.** |
-
-3. Run the bot:
-
-   **No Docker:**
-   ```bash
-   python -m pip install -U -r requirements.txt
-   python llmcord.py
-   ```
-
-   **With Docker:**
-   ```bash
-   docker compose up
-   ```
 
 ## Notes
 

@@ -24,9 +24,8 @@ from memory_commands import bump_epoch
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
 
-# `openai` and `llmcord` are imported lazily inside the fixtures and tests
-# below, and `dotenv` is optional here: a default `pytest` run must collect this
-# file without the bot's runtime dependencies installed.
+# A default `pytest` run must collect this file without the bot's runtime
+# dependencies, so `openai` and `llmcord` are imported where they are used.
 try:
     from dotenv import load_dotenv
 
@@ -57,8 +56,8 @@ def live_client():
 def provider_reachable():
     """One minimal completion, so a broken endpoint fails loudly.
 
-    `extract_memory` swallows every exception and returns None, which is also
-    what "nothing worth remembering" looks like. Tests that assert on an absent
+    `extract_memory` turns every exception into None, which is also what
+    "nothing worth remembering" looks like, so tests asserting on an absent
     memory would otherwise pass during an outage.
     """
     from openai import OpenAI
@@ -117,23 +116,17 @@ async def test_extraction_merges_with_existing_memory(live_client):
 async def test_extraction_ignores_transient_chatter(live_client, provider_reachable):
     """Doubles as a fitness check on the candidate `memory_model`.
 
-    Small instruct models tend to summarise the exchange instead of declining
-    to record anything, which fills memory with conversation transcripts. A
-    failure here is usually a verdict on the model rather than a broken test:
-    `gemma-4-12B` passes, while a 2B model stored the exchange as a fact.
+    Small instruct models summarise the exchange instead of declining to record
+    anything, filling memory with transcripts. A failure is usually a verdict on
+    the model, not a broken test. The exchange must stay free of anything
+    durable, or a reasonable extraction will look like a failure.
     """
-    # The exchange must carry nothing durable at all. An earlier version asked
-    # about the weather in Montreal, which leaks a plausible fact (the user's
-    # city) and left the assertion arguing with a reasonable extraction.
     memory = await extract(
         live_client,
         None,
         "User:\nWhat is 2 + 2?\n\nAssistant:\n4.",
     )
 
-    # Nothing durable was said, so nothing may be stored. Asserting only that
-    # the weather is absent is not enough: it lets a placeholder like "(none)"
-    # through, and that placeholder then reads as a fact about the user.
     assert memory is None
 
 

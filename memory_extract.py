@@ -8,15 +8,12 @@ Keep only durable facts, preferences, and details about the user.
 Omit the conversation itself and transient context.
 Return nothing at all if there is nothing worth remembering."""
 
-# Models often answer "nothing to remember" with a placeholder word instead of
-# an empty response. Stored verbatim, that placeholder becomes a fact about the
-# user and is fed back into every later system prompt.
+# A model with nothing to record answers with a placeholder, or with stray
+# punctuation, rather than an empty string. Stored, it reads as a user fact.
 EMPTY_RESPONSES = frozenset(("none", "n/a", "na", "nothing", "null", "nil", "empty", "no memory", "no facts"))
 
 
 def is_empty_response(content: str) -> bool:
-    # Stripping the decoration can leave nothing behind, which is how a stray
-    # "_" or "()" reaches the store as if it were a recorded fact.
     stripped = content.strip().strip("().[]-\"'*_ ").casefold()
     return not stripped or stripped in EMPTY_RESPONSES
 
@@ -32,8 +29,7 @@ async def extract_memory(
 ) -> str | None:
     """Extract and consolidate durable user facts from a conversation exchange."""
     try:
-        # The "existing memory" section is omitted rather than filled with a
-        # placeholder, which models tend to echo back as the updated memory.
+        # Absent memory omits the section: a placeholder gets echoed back as the update.
         sections = ([f"Existing memory:\n{existing_memory}"] if existing_memory and existing_memory.strip() else []) + [f"Recent exchange:\n{exchange}"]
         user_content = "\n\n".join(sections)
         response = await client.chat.completions.create(

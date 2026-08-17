@@ -1,7 +1,6 @@
 from memory_commands import (
     FORGET_DONE_MESSAGE,
     NO_MEMORY_MESSAGE,
-    bump_epoch,
     current_epoch,
     format_memory_reply,
     forget_memory,

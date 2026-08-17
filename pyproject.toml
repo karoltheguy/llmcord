@@ -4,3 +4,9 @@ testpaths = ["tests"]
 # Modules under test live at the repo root. Bare `pytest` does not put the
 # working directory on sys.path the way `python -m pytest` does.
 pythonpath = ["."]
+# Live tests spend real API tokens, so they never run by default. Opt in with
+# `pytest -m live` once the LLMCORD_E2E_* variables are set.
+addopts = "-m 'not live'"
+markers = [
+    "live: hits a real LLM provider and costs money (opt in with -m live)",
+]

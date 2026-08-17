@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from memory_extract import extract_memory
 
 
@@ -73,6 +75,46 @@ async def test_returns_none_when_model_returns_blank():
         prompt="prompt",
     )
     assert result is None
+
+
+@pytest.mark.parametrize(
+    "response",
+    ["(none)", "none", "None.", "N/A", "nothing", "null", "  **none**  ", "[empty]", "_", "*", "()", "-", " . "],
+)
+async def test_returns_none_for_placeholder_responses(response):
+    client = StubClient(response=response)
+    result = await extract_memory(
+        client=client,
+        model="gpt-4o",
+        existing_memory=None,
+        exchange="msg",
+        prompt="prompt",
+    )
+    assert result is None
+
+
+async def test_keeps_real_memory_that_merely_mentions_a_placeholder_word():
+    client = StubClient(response="Has no known allergies. Nothing else recorded.")
+    result = await extract_memory(
+        client=client,
+        model="gpt-4o",
+        existing_memory=None,
+        exchange="msg",
+        prompt="prompt",
+    )
+    assert result == "Has no known allergies. Nothing else recorded."
+
+
+async def test_omits_the_existing_memory_section_when_there_is_none():
+    client = StubClient(response="updated memory")
+    await extract_memory(
+        client=client,
+        model="gpt-4o",
+        existing_memory=None,
+        exchange="msg",
+        prompt="prompt",
+    )
+    assert "Existing memory" not in str(client.last_kwargs.get("messages", []))
 
 
 async def test_returns_none_when_client_raises():

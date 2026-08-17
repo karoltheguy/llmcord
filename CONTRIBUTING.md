@@ -25,6 +25,36 @@ Do not enable "Automatically delete head branches" in repository settings. A
 branch offered to upstream must keep existing while that pull request is open,
 and merging the same branch into this fork's `main` would otherwise delete it.
 
+## Tests
+
+`pytest` runs the offline suite. It needs only pytest and pytest-asyncio; the
+modules it covers are kept free of the bot's runtime dependencies.
+
+Live tests call a real LLM provider and spend real tokens, so they carry the
+`live` marker and are deselected by default. To run them, set the credentials
+(a `.env` file works) and opt in:
+
+```bash
+export LLMCORD_E2E_BASE_URL=https://openrouter.ai/api/v1
+export LLMCORD_E2E_API_KEY=sk-...
+export LLMCORD_E2E_MODEL=openai/gpt-4o-mini
+pytest -m live
+```
+
+They skip themselves when those variables are unset. Use a cheap model, and give
+the key its own spend cap rather than reusing the one the bot runs on. CI does
+not run them.
+
+Model output is not deterministic, so live tests assert on properties of the
+extraction prompt (durable facts survive, transient chatter does not, existing
+memory is merged) rather than on exact strings.
+
+They also work as a fitness check on a candidate `memory_model`. A small model
+that summarises the exchange instead of declining to record anything will fail
+`test_extraction_ignores_transient_chatter`, which is a verdict on the model
+rather than a broken test. Point the variables at a local server to run them
+for free, for example llama.cpp on `http://localhost:8080/v1`.
+
 ## Commits
 
 Conventional Commits, lowercase description, 72 characters max:

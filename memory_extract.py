@@ -8,6 +8,15 @@ Keep only durable facts, preferences, and details about the user.
 Omit the conversation itself and transient context.
 Return nothing at all if there is nothing worth remembering."""
 
+# A model with nothing to record answers with a placeholder, or with stray
+# punctuation, rather than an empty string. Stored, it reads as a user fact.
+EMPTY_RESPONSES = frozenset(("none", "n/a", "na", "nothing", "null", "nil", "empty", "no memory", "no facts"))
+
+
+def is_empty_response(content: str) -> bool:
+    stripped = content.strip().strip("().[]-\"'*_ ").casefold()
+    return not stripped or stripped in EMPTY_RESPONSES
+
 
 async def extract_memory(
     *,
@@ -20,7 +29,9 @@ async def extract_memory(
 ) -> str | None:
     """Extract and consolidate durable user facts from a conversation exchange."""
     try:
-        user_content = f"Existing memory:\n{existing_memory or '(none)'}\n\nRecent exchange:\n{exchange}"
+        # Absent memory omits the section: a placeholder gets echoed back as the update.
+        sections = ([f"Existing memory:\n{existing_memory}"] if existing_memory and existing_memory.strip() else []) + [f"Recent exchange:\n{exchange}"]
+        user_content = "\n\n".join(sections)
         response = await client.chat.completions.create(
             model=model,
             messages=[
@@ -29,7 +40,10 @@ async def extract_memory(
             ],
         )
         content = response.choices[0].message.content if response.choices and response.choices[0].message else None
-        return content.strip()[:max_chars] if content and content.strip() else None
+        if not content or not content.strip() or is_empty_response(content):
+            return None
+
+        return content.strip()[:max_chars]
     except Exception:
         logging.exception("Error while extracting memory")
         return None

@@ -8,6 +8,7 @@ COPY requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY llmcord.py memory_store.py config.yaml ./
+# Globbed so a new module does not have to be added here to reach the image.
+COPY *.py config.yaml ./
 
 CMD ["python", "llmcord.py"]

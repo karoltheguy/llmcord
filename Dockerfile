@@ -4,9 +4,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY requirements.lock ./
 
-RUN pip install --no-cache-dir -r requirements.txt
+# Wheels only, verified against the hashes in the lock. See CONTRIBUTING.md
+# for how to regenerate the lock when requirements.txt changes.
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock
 
 # Globbed so a new module does not have to be added here to reach the image.
 COPY *.py config.yaml ./

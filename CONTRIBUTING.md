@@ -49,6 +49,12 @@ Model output is not deterministic, so live tests assert on properties of the
 extraction prompt (durable facts survive, transient chatter does not, existing
 memory is merged) rather than on exact strings.
 
+They also work as a fitness check on a candidate `memory_model`. A small model
+that summarises the exchange instead of declining to record anything will fail
+`test_extraction_ignores_transient_chatter`, which is a verdict on the model
+rather than a broken test. Point the variables at a local server to run them
+for free, for example llama.cpp on `http://localhost:8080/v1`.
+
 ## Commits
 
 Conventional Commits, lowercase description, 72 characters max:

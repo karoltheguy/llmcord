@@ -115,15 +115,26 @@ async def test_extraction_merges_with_existing_memory(live_client):
 
 @requires_provider
 async def test_extraction_ignores_transient_chatter(live_client, provider_reachable):
+    """Doubles as a fitness check on the candidate `memory_model`.
+
+    Small instruct models tend to summarise the exchange instead of declining
+    to record anything, which fills memory with conversation transcripts. A
+    failure here is usually a verdict on the model rather than a broken test:
+    `gemma-4-12B` passes, while a 2B model stored the exchange as a fact.
+    """
+    # The exchange must carry nothing durable at all. An earlier version asked
+    # about the weather in Montreal, which leaks a plausible fact (the user's
+    # city) and left the assertion arguing with a reasonable extraction.
     memory = await extract(
         live_client,
         None,
-        "User:\nIs it raining in Montreal right now?\n\nAssistant:\nI can't check live weather.",
+        "User:\nWhat is 2 + 2?\n\nAssistant:\n4.",
     )
 
-    # The prompt asks for durable facts only, so either nothing is returned or
-    # whatever comes back must not be the weather question itself.
-    assert memory is None or "rain" not in memory.lower()
+    # Nothing durable was said, so nothing may be stored. Asserting only that
+    # the weather is absent is not enough: it lets a placeholder like "(none)"
+    # through, and that placeholder then reads as a fact about the user.
+    assert memory is None
 
 
 @requires_provider

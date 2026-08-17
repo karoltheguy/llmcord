@@ -55,6 +55,31 @@ that summarises the exchange instead of declining to record anything will fail
 rather than a broken test. Point the variables at a local server to run them
 for free, for example llama.cpp on `http://localhost:8080/v1`.
 
+## Dependencies
+
+`requirements.txt` and `requirements-dev.txt` declare what the project needs.
+`requirements.lock` and `requirements-dev.lock` pin every resolved version,
+including transitive ones, with hashes. The Docker image and CI install from
+the locks with `--only-binary :all: --require-hashes`, so an install can
+neither run a setup script nor pick up a version nobody reviewed.
+
+Regenerate both after changing either declaration file:
+
+```bash
+uv pip compile --generate-hashes --python-version 3.13 --only-binary :all: \
+  requirements.txt -o requirements.lock
+uv pip compile --generate-hashes --python-version 3.13 --only-binary :all: \
+  requirements.txt requirements-dev.txt -o requirements-dev.lock
+```
+
+`requirements-dev.lock` covers the runtime dependencies too, which is why CI
+installs it alone.
+
+`requirements.txt` belongs to upstream, so a sync can change it without
+touching the locks. CI installs from the lock and the tests import the runtime
+modules, so a dependency added upstream fails the sync pull request rather than
+slipping through. Regenerate the locks in that pull request.
+
 ## Commits
 
 Conventional Commits, lowercase description, 72 characters max:

@@ -22,6 +22,8 @@
 !docker-compose.yaml
 !requirements.txt
 !requirements-dev.txt
+!requirements.lock
+!requirements-dev.lock
 
 # Re-ignored below. Now that git descends into subdirectories, these have to be
 # excluded explicitly or their contents would match the re-includes above.

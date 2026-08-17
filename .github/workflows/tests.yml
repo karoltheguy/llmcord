@@ -18,9 +18,10 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
+        # The dev lock already contains the runtime dependencies, so one
+        # install covers both and keeps the resolved versions consistent.
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install --only-binary :all: --require-hashes -r requirements-dev.lock
 
       - name: Run tests
         run: pytest

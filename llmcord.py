@@ -3,7 +3,6 @@ from base64 import b64encode
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
-import os
 from typing import Any, Literal, Optional
 
 import discord
@@ -13,12 +12,14 @@ from discord.ui import LayoutView, TextDisplay
 from dotenv import load_dotenv
 import httpx
 from openai import AsyncOpenAI
-import yaml
 
+from config import get_config
 from conversation import build_user_prefix, should_chain_to_previous
 from memory_commands import current_epoch, forget_memory, may_write_memory, read_memory
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
+from models import accepts_images, parse_provider_model
+from permissions import is_allowed
 from prompt import build_system_prompt
 
 load_dotenv()
@@ -28,8 +29,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
 )
 
-VISION_MODEL_TAGS = ("chat-latest", "claude", "gemini", "gemma", "gpt-4", "gpt-5", "gpt-latest", "grok-4", "llama", "vision", "vl")
-
 EMBED_COLOR_COMPLETE = discord.Color.dark_green()
 EMBED_COLOR_INCOMPLETE = discord.Color.orange()
 
@@ -37,17 +36,6 @@ STREAMING_INDICATOR = " ⚪"
 EDIT_DELAY_SECONDS = 1
 
 MAX_MESSAGE_NODES = 500
-
-
-def resolve_env(node: Any) -> Any:
-    if isinstance(node, dict):
-        return {key.removesuffix("_env"): os.environ.get(value) if key.endswith("_env") else resolve_env(value) for key, value in node.items()}
-    return node
-
-
-def get_config(filename: str = "config.yaml") -> dict[str, Any]:
-    with open(filename, encoding="utf-8") as file:
-        return resolve_env(yaml.safe_load(file))
 
 
 config = get_config()
@@ -164,7 +152,7 @@ async def on_ready() -> None:
 
 
 def make_openai_client(config: dict[str, Any], provider_slash_model: str) -> tuple[AsyncOpenAI, str, dict[str, Any]]:
-    provider, model = provider_slash_model.removesuffix(":vision").split("/", 1)
+    provider, model = parse_provider_model(provider_slash_model)
     provider_config = config["providers"][provider]
     return AsyncOpenAI(base_url=provider_config["base_url"], api_key=provider_config.get("api_key", "sk-no-key-required")), model, provider_config
 
@@ -207,23 +195,14 @@ async def on_message(new_msg: discord.Message) -> None:
 
     allow_dms = config.get("allow_dms", True)
 
-    permissions = config["permissions"]
-
-    user_is_admin = new_msg.author.id in permissions["users"]["admin_ids"]
-
-    (allowed_user_ids, blocked_user_ids), (allowed_role_ids, blocked_role_ids), (allowed_channel_ids, blocked_channel_ids) = (
-        (perm["allowed_ids"], perm["blocked_ids"]) for perm in (permissions["users"], permissions["roles"], permissions["channels"])
-    )
-
-    allow_all_users = not allowed_user_ids if is_dm else not allowed_user_ids and not allowed_role_ids
-    is_good_user = user_is_admin or allow_all_users or new_msg.author.id in allowed_user_ids or any(id in allowed_role_ids for id in role_ids)
-    is_bad_user = not is_good_user or new_msg.author.id in blocked_user_ids or any(id in blocked_role_ids for id in role_ids)
-
-    allow_all_channels = not allowed_channel_ids
-    is_good_channel = user_is_admin or allow_dms if is_dm else allow_all_channels or any(id in allowed_channel_ids for id in channel_ids)
-    is_bad_channel = not is_good_channel or any(id in blocked_channel_ids for id in channel_ids)
-
-    if is_bad_user or is_bad_channel:
+    if not is_allowed(
+        user_id=new_msg.author.id,
+        role_ids=role_ids,
+        channel_ids=channel_ids,
+        permissions=config["permissions"],
+        is_dm=is_dm,
+        allow_dms=allow_dms,
+    ):
         return
 
     provider_slash_model = curr_model
@@ -235,7 +214,7 @@ async def on_message(new_msg: discord.Message) -> None:
     extra_query = provider_config.get("extra_query")
     extra_body = (provider_config.get("extra_body") or {}) | (model_parameters or {}) or None
 
-    accept_images = any(x in provider_slash_model.lower() for x in VISION_MODEL_TAGS)
+    accept_images = accepts_images(provider_slash_model)
 
     max_text = config.get("max_text", 100000)
     max_images = config.get("max_images", 5) if accept_images else 0

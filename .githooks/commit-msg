@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Reject commit subjects that do not follow Conventional Commits.
+# Enabled with: git config core.hooksPath .githooks
+set -euo pipefail
+
+msg_file=$1
+
+# First line that is neither blank nor a comment.
+subject=$(grep -v '^#' "$msg_file" | sed '/^[[:space:]]*$/d' | head -n 1)
+
+if [ -z "$subject" ]; then
+    exit 0
+fi
+
+# Git's own generated subjects are none of this hook's business.
+case "$subject" in
+    "Merge "*|"Revert "*|"fixup! "*|"squash! "*|"Reapply "*)
+        exit 0
+        ;;
+esac
+
+types='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+pattern="^(${types})(\([a-z0-9._/-]+\))?!?: [a-z].*[^.]$"
+
+fail() {
+    echo "commit-msg: $1" >&2
+    echo >&2
+    echo "  subject: $subject" >&2
+    echo >&2
+    echo "Conventional Commits, lowercase description, 72 characters max:" >&2
+    echo >&2
+    echo "  fix(gitignore): allow subdirectories to be committed (fixes #1)" >&2
+    echo >&2
+    echo "Types: ${types//|/, }" >&2
+    exit 1
+}
+
+if ! printf '%s' "$subject" | grep -qE "$pattern"; then
+    fail "subject does not match 'type(scope): lowercase description'"
+fi
+
+if [ "${#subject}" -gt 72 ]; then
+    fail "subject is ${#subject} characters, the limit is 72"
+fi

@@ -25,6 +25,10 @@
 !requirements.lock
 !requirements-dev.lock
 
+# Git hooks are extensionless scripts, so they need their own re-include.
+!.githooks/*
+!.claude/settings.json
+
 # Re-ignored below. Now that git descends into subdirectories, these have to be
 # excluded explicitly or their contents would match the re-includes above.
 # A virtualenv is the dangerous one: it is full of .py files.

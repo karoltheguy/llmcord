@@ -93,6 +93,26 @@ Scopes in use: `gitignore`, `sync`, `ci`, `memory`, `tests`.
 Add a body only when the reason for the change is not visible from the subject,
 and keep it to about three lines.
 
+`.githooks/commit-msg` enforces that. Git does not enable a checked-in hook by
+itself, so point the clone at the directory once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook rejects a subject that misses the `type(scope): description` shape,
+starts the description with a capital, ends it with a period, or runs past 72
+characters. It leaves merge, revert, and fixup subjects alone.
+
+Two more checks run the same script, so the rules are stated once:
+
+- `.github/workflows/commits.yml` checks every non-merge commit in a pull
+  request. This is the check that cannot be skipped with `--no-verify`.
+- `.claude/settings.json` registers `.githooks/claude-commit-msg` as a Claude
+  Code `PreToolUse` hook. It reads the message out of a `git commit` command
+  and refuses the command before git runs, so a bad subject is rewritten rather
+  than committed and amended.
+
 ## Syncing with upstream
 
 `.github/workflows/sync.yml` runs daily at 08:00 UTC. It merges `upstream/main`

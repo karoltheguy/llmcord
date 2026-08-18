@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Claude Code PreToolUse gate for `git commit`.
+
+Reads the hook payload on stdin, pulls the commit message out of the bash
+command, and runs it through .githooks/commit-msg. A rejection comes back as a
+PreToolUse deny so the model rewrites the subject instead of hitting the git
+hook. The rules live in commit-msg alone; this only finds the message.
+"""
+
+import json
+import shlex
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HOOK = Path(__file__).with_name("commit-msg")
+
+
+def commit_message(command: str) -> str | None:
+    """Return the message a `git commit` command supplies, if any is visible."""
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        # Unbalanced quotes, most likely a heredoc. Leave it to the git hook.
+        return None
+
+    if "commit" not in tokens:
+        return None
+
+    for index, token in enumerate(tokens):
+        if token in ("-m", "--message") and index + 1 < len(tokens):
+            return tokens[index + 1]
+        if token.startswith("--message="):
+            return token[len("--message=") :]
+        if token.startswith("-m") and len(token) > 2:
+            return token[2:]
+    return None
+
+
+def main() -> None:
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return
+
+    command = payload.get("tool_input", {}).get("command", "")
+    message = commit_message(command)
+    if message is None:
+        return
+
+    with tempfile.NamedTemporaryFile("w", suffix=".msg", delete=False) as handle:
+        handle.write(message + "\n")
+        path = handle.name
+
+    try:
+        result = subprocess.run(
+            [str(HOOK), path], capture_output=True, text=True, check=False
+        )
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+    if result.returncode == 0:
+        return
+
+    reason = (
+        "This commit subject does not follow the convention this repository "
+        "enforces in .githooks/commit-msg, which will reject the commit:\n\n"
+        f"{result.stderr.strip()}\n\n"
+        "Rewrite the subject and run the command again."
+    )
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        },
+        sys.stdout,
+    )
+
+
+if __name__ == "__main__":
+    main()

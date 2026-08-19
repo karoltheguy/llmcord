@@ -22,11 +22,19 @@ implicit_public_chaining: true
 recent_context_messages: 0
 recent_context_window_hours: 24
 
-# Per-user memory. Off by default: nothing writes memory yet, so turning it on
-# has no effect until the extraction pass exists.
+# Per-user memory. Off by default. When enabled, set memory_model below to turn on
+# the extraction pass that records it.
 memory_enabled: false
 memory_db_path: data/memory.db
+# Cap on a single injected memory block.
 max_memory_text: 2000
+# Cap on all injected memory blocks combined, so a busy channel cannot crowd out
+# the conversation.
+max_memory_total: 6000
+# When true, the bot also sees other participants' memory and the claims others
+# recorded about them. Off by default: a user's memory can contain things they
+# told the bot privately in DMs.
+memory_shared: false
 # How many recent transcript messages to feed into memory extraction.
 memory_extraction_max_messages: 8
 # Caps how many claims about other people a single extraction pass can record.

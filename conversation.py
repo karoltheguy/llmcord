@@ -22,6 +22,22 @@ def select_recent_context(*, candidates, now, window, limit, exclude_ids) -> lis
     return list(reversed(kept))
 
 
+def render_exchange(*, entries, limit: int, assistant_reply: str | None = None) -> str:
+    """Render a transcript of the most recent `limit` entries, oldest-first, plus an optional reply."""
+    ordered = sorted(entries, key=lambda entry: entry[0])
+    kept = ordered[-limit:] if limit > 0 else []
+
+    parts = [
+        text if role == "user" else f"Assistant:\n{text}"
+        for _created_at, role, text in kept
+    ]
+
+    if assistant_reply:
+        parts.append(f"Assistant:\n{assistant_reply}")
+
+    return "\n\n".join(parts)
+
+
 def should_chain_to_previous(
     *,
     is_dm: bool,

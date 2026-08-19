@@ -19,6 +19,15 @@ def _placeholders(values) -> str:
     return ",".join("?" for _ in values)
 
 
+def _partition_echoed(claims: list["Claim"], in_scope_ids: set[int]) -> tuple[list["Claim"], list["Claim"]]:
+    echoed: list["Claim"] = []
+    new: list["Claim"] = []
+    for claim in claims:
+        target = echoed if claim.id is not None and claim.id in in_scope_ids else new
+        target.append(claim)
+    return echoed, new
+
+
 def _subjects_intersect_sql(subject_ids) -> str:
     return (
         "EXISTS (SELECT 1 FROM claim_subjects WHERE claim_subjects.claim_id = claims.id "
@@ -131,8 +140,7 @@ class MemoryStore:
             with conn:
                 in_scope_ids = self._in_scope_claim_ids(conn, source_id, scope_subject_ids)
 
-                echoed_claims = [claim for claim in claims if claim.id is not None and claim.id in in_scope_ids]
-                new_claims = [claim for claim in claims if not (claim.id is not None and claim.id in in_scope_ids)]
+                echoed_claims, new_claims = _partition_echoed(claims, in_scope_ids)
                 echoed_ids = {claim.id for claim in echoed_claims}
 
                 ids_to_delete = in_scope_ids - echoed_ids

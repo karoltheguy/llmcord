@@ -13,9 +13,11 @@ RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requireme
 # Globbed so a new module does not have to be added here to reach the image.
 COPY *.py config.yaml ./
 
-# UID 1000 matches the usual first host account, so the bind-mounted ./data
-# stays writable. Override with `user:` in compose if your host UID differs.
-RUN useradd --create-home --uid 1000 llmcord
+# The bot only writes to /app/data (the rest of /app is mounted read-only), so
+# the image owns that directory and a fresh volume inherits the ownership.
+RUN useradd --create-home --uid 1000 llmcord \
+    && mkdir -p /app/data \
+    && chown llmcord:llmcord /app/data
 USER llmcord
 
 CMD ["python", "llmcord.py"]

@@ -106,6 +106,10 @@ Use `/memory` to see everything stored about you and `/forget` to delete it, cov
    ```bash
    docker compose up
    ```
+   Memory is kept in a named `llmcord-data` volume, so the same compose file
+   works under Docker and rootless podman. If you are upgrading from a version
+   that bind-mounted `./data`, copy your existing `data/memory.db` into the
+   volume before starting.
 
 ## Configuration
 
@@ -138,7 +142,7 @@ Use `/memory` to see everything stored about you and `/forget` to delete it, cov
 | Setting | Description |
 | --- | --- |
 | **memory_enabled** | Set to `true` to store and inject per-user memory.<br /><br />Default: `false` |
-| **memory_db_path** | Where the SQLite memory database lives.<br /><br />Default: `data/memory.db` |
+| **memory_db_path** | Where the SQLite memory database lives.<br /><br />Default: `data/memory.db`<br /><br />**In the container `/app` is mounted read-only, so this must stay inside `data/`.** |
 | **memory_model** | The `<provider>/<model>` used to extract memory from each exchange. **Memory extraction stays off until this is set**, even when `memory_enabled` is `true`. |
 | **memory_shared** | When `true`, the bot also sees other participants' memory and the claims others recorded about them.<br /><br />Default: `false`<br /><br />**Off by default because a user's memory can contain things they told the bot privately in DMs.** |
 | **max_memory_text** | The maximum size of a single injected memory block.<br /><br />Default: `2000` |

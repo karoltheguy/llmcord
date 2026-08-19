@@ -128,3 +128,18 @@ def test_build_memory_blocks_omits_falsy_author_memory():
     )
     assert "" not in blocks
     assert blocks == []
+
+
+def test_build_memory_blocks_breaks_timestamp_ties_by_ascending_source_id():
+    claims = [
+        Claim(id=None, source_id=333, subjects={111}, text="from carol", created_at="2026-01-01T00:00:00"),
+        Claim(id=None, source_id=222, subjects={111}, text="from bob", created_at="2026-01-01T00:00:00"),
+    ]
+    blocks = build_memory_blocks(
+        names={111: "Alice", 222: "Bob", 333: "Carol"},
+        author_memory=None,
+        author_claims=[],
+        other_memories={},
+        other_claims=claims,
+    )
+    assert [b.split(" said:")[0] for b in blocks] == ["<@222> (Bob)", "<@333> (Carol)"]

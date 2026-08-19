@@ -65,11 +65,9 @@ def build_memory_blocks(
         blocks.append(author_memory)
 
     all_claims = list(author_claims) + list(other_claims)
-    # Sort is stable, so sorting by source_id first and then (created_at, id)
-    # with reverse=True keeps equal-timestamp claims in ascending source_id
-    # order while still ranking newer claims first.
-    ordered_by_source = sorted(all_claims, key=lambda c: c.source_id)
-    sorted_claims = sorted(ordered_by_source, key=lambda c: (c.created_at or "", c.id or 0), reverse=True)
+    # Newest claims first. reverse=True flips the whole key, so source_id is
+    # negated to keep equal-timestamp claims in ascending source_id order.
+    sorted_claims = sorted(all_claims, key=lambda c: (c.created_at or "", c.id or 0, -c.source_id), reverse=True)
 
     groups: dict[int, list] = {}
     for claim in sorted_claims:

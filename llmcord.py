@@ -20,7 +20,7 @@ from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import Claim, MemoryStore
 from models import accepts_images, parse_provider_model
 from permissions import is_allowed
-from prompt import build_system_prompt
+from prompt import build_memory_blocks, build_system_prompt
 
 load_dotenv()
 
@@ -172,6 +172,31 @@ def subjects_still_writable(subjects: set[int], epochs_at_start: dict[int, int])
 
 def extraction_subjects(participants: set[int] | None, user_id: int, bot_id: int | None) -> set[int]:
     return {pid for pid in (participants or set()) if pid != user_id and pid != bot_id}
+
+
+async def gather_memory_blocks(config: dict[str, Any], author_id: int, participant_ids: set[int], names: dict[int, str]) -> list[str]:
+    if memory_store is None:
+        return []
+
+    author_memory = await memory_store.get(author_id)
+    author_claims = await memory_store.claims_by(author_id, subject_ids=participant_ids)
+
+    others = {pid for pid in participant_ids if pid != author_id}
+
+    other_memories: dict[int, str | None] = {}
+    other_claims: list[Claim] = []
+    if config.get("memory_shared", False) and others:
+        for pid in sorted(others):
+            other_memories[pid] = await memory_store.get(pid)
+        other_claims = await memory_store.claims_about(participant_ids, exclude_source=author_id)
+
+    return build_memory_blocks(
+        names=names,
+        author_memory=author_memory,
+        author_claims=author_claims,
+        other_memories=other_memories,
+        other_claims=other_claims,
+    )
 
 
 async def read_known_claim_ids(user_id: int, subjects: set[int]) -> set[int]:
@@ -388,9 +413,13 @@ async def on_message(new_msg: discord.Message) -> None:
     chain_ids = set()
     chain_entries = []
     participant_ids: set[int] = set()
+    display_names: dict[int, str] = {}
     exchange_entries: list = []
     user_warnings = set()
     curr_msg = new_msg
+
+    if name := getattr(new_msg.author, "display_name", None):
+        display_names[new_msg.author.id] = name
 
     while curr_msg is not None and len(messages) < max_messages:
         curr_node = msg_nodes.setdefault(curr_msg.id, MsgNode())
@@ -408,6 +437,8 @@ async def on_message(new_msg: discord.Message) -> None:
                 chain_entries.append((curr_msg.created_at, dict(content=content, role=curr_node.role)))
                 if curr_node.role == "user":
                     participant_ids.add(curr_msg.author.id)
+                    if name := getattr(curr_msg.author, "display_name", None):
+                        display_names[curr_msg.author.id] = name
                 exchange_entries.append((curr_msg.created_at, curr_node.role, curr_node.text[:max_text]))
 
             if len(curr_node.text) > max_text:
@@ -455,6 +486,8 @@ async def on_message(new_msg: discord.Message) -> None:
                 window_entries.append((created_at, dict(content=content, role=recent_node.role)))
                 if not recent_msg.author.bot:
                     participant_ids.add(recent_msg.author.id)
+                    if name := getattr(recent_msg.author, "display_name", None):
+                        display_names[recent_msg.author.id] = name
                 exchange_entries.append((created_at, recent_node.role, recent_node.text[:max_text]))
 
         merged = sorted(chain_entries + window_entries, key=lambda entry: entry[0], reverse=True)
@@ -462,9 +495,15 @@ async def on_message(new_msg: discord.Message) -> None:
 
     logging.info(f"Message received (user ID: {new_msg.author.id}, attachments: {len(new_msg.attachments)}, conversation length: {len(messages)}):\n{new_msg.content}")
 
-    memory = await memory_store.get(new_msg.author.id) if memory_store else None
+    memory_blocks = await gather_memory_blocks(config, new_msg.author.id, participant_ids | {new_msg.author.id}, display_names)
 
-    if system_prompt := build_system_prompt(config.get("system_prompt"), datetime.now().astimezone(), memory=memory, max_memory_text=config.get("max_memory_text", 2000)):
+    if system_prompt := build_system_prompt(
+        config.get("system_prompt"),
+        datetime.now().astimezone(),
+        memory_blocks=memory_blocks,
+        max_memory_text=config.get("max_memory_text", 2000),
+        max_memory_total=config.get("max_memory_total", 6000),
+    ):
         messages.append(dict(role="system", content=system_prompt))
 
     # Generate and send response message(s) (can be multiple if response is long)

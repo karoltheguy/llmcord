@@ -15,6 +15,13 @@ allow_dms: true
 # Set to false to restore upstream behavior.
 implicit_public_chaining: true
 
+# Recent channel context. 0 disables it and the bot only follows the reply chain.
+# When above 0, the bot also reads that many recent messages from the channel and
+# keeps the ones newer than the window below, including messages from people who
+# never mentioned it. Everything kept is sent to your model provider.
+recent_context_messages: 0
+recent_context_window_hours: 24
+
 # Per-user memory. Off by default: nothing writes memory yet, so turning it on
 # has no effect until the extraction pass exists.
 memory_enabled: false

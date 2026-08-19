@@ -1,7 +1,7 @@
 import asyncio
 from base64 import b64encode
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from typing import Any, Literal, Optional
 
@@ -14,7 +14,7 @@ import httpx
 from openai import AsyncOpenAI
 
 from config import get_config
-from conversation import build_user_prefix, should_chain_to_previous
+from conversation import build_user_prefix, select_recent_context, should_chain_to_previous
 from memory_commands import current_epoch, forget_memory, may_write_memory, read_memory
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
 from memory_store import MemoryStore
@@ -210,6 +210,12 @@ async def build_msg_node(curr_node: MsgNode, curr_msg: discord.Message) -> None:
     curr_node.has_bad_attachments = len(curr_msg.attachments) > len(good_attachments)
 
 
+def node_content(node: MsgNode, max_text: int, max_images: int):
+    if node.images[:max_images]:
+        return [dict(type="text", text=node.text[:max_text])] + node.images[:max_images]
+    return node.text[:max_text]
+
+
 async def resolve_parent_msg(curr_node: MsgNode, curr_msg: discord.Message, config: dict[str, Any]) -> None:
     try:
         if (
@@ -286,9 +292,13 @@ async def on_message(new_msg: discord.Message) -> None:
     max_text = config.get("max_text", 100000)
     max_images = config.get("max_images", 5) if accept_images else 0
     max_messages = config.get("max_messages", 25)
+    recent_limit = config.get("recent_context_messages", 0)
+    recent_window_hours = config.get("recent_context_window_hours", 24)
 
     # Build message chain and set user warnings
     messages = []
+    chain_ids = set()
+    chain_entries = []
     user_warnings = set()
     curr_msg = new_msg
 
@@ -300,13 +310,12 @@ async def on_message(new_msg: discord.Message) -> None:
                 await build_msg_node(curr_node, curr_msg)
                 await resolve_parent_msg(curr_node, curr_msg, config)
 
-            if curr_node.images[:max_images]:
-                content = [dict(type="text", text=curr_node.text[:max_text])] + curr_node.images[:max_images]
-            else:
-                content = curr_node.text[:max_text]
+            content = node_content(curr_node, max_text, max_images)
 
             if content != "":
                 messages.append(dict(content=content, role=curr_node.role))
+                chain_ids.add(curr_msg.id)
+                chain_entries.append((curr_msg.created_at, dict(content=content, role=curr_node.role)))
 
             if len(curr_node.text) > max_text:
                 user_warnings.add(f"⚠️ Max {max_text:,} characters per message")
@@ -318,6 +327,42 @@ async def on_message(new_msg: discord.Message) -> None:
                 user_warnings.add(f"⚠️ Only using last {len(messages)} message{'' if len(messages) == 1 else 's'}")
 
             curr_msg = curr_node.parent_msg
+
+    if recent_limit > 0:
+        try:
+            history = [m async for m in new_msg.channel.history(before=new_msg, limit=recent_limit)]
+        except (discord.NotFound, discord.HTTPException):
+            logging.exception("Error fetching recent channel context")
+            history = []
+
+        by_id = {m.id: m for m in history}
+        selected = select_recent_context(
+            candidates=[(m.id, m.author.id, m.created_at, m.author.bot) for m in history],
+            now=new_msg.created_at,
+            window=timedelta(hours=recent_window_hours),
+            limit=recent_limit,
+            exclude_ids=chain_ids,
+        )
+
+        window_entries = []
+        for entry_id, _author_id, created_at, _is_bot in selected:
+            recent_msg = by_id[entry_id]
+            if recent_msg.author.bot and recent_msg.author != discord_bot.user:
+                continue
+            if recent_msg.type not in (discord.MessageType.default, discord.MessageType.reply):
+                continue
+
+            recent_node = msg_nodes.setdefault(recent_msg.id, MsgNode())
+            async with recent_node.lock:
+                if recent_node.text is None:
+                    await build_msg_node(recent_node, recent_msg)
+                content = node_content(recent_node, max_text, max_images)
+
+            if content != "":
+                window_entries.append((created_at, dict(content=content, role=recent_node.role)))
+
+        merged = sorted(chain_entries + window_entries, key=lambda entry: entry[0], reverse=True)
+        messages = [entry[1] for entry in merged[:max_messages]]
 
     logging.info(f"Message received (user ID: {new_msg.author.id}, attachments: {len(new_msg.attachments)}, conversation length: {len(messages)}):\n{new_msg.content}")
 

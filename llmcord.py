@@ -14,10 +14,10 @@ import httpx
 from openai import AsyncOpenAI
 
 from config import get_config
-from conversation import build_user_prefix, select_recent_context, should_chain_to_previous
+from conversation import build_user_prefix, render_exchange, select_recent_context, should_chain_to_previous
 from memory_commands import current_epoch, forget_memory, may_write_memory, read_memory
 from memory_extract import DEFAULT_EXTRACTION_PROMPT, extract_memory
-from memory_store import MemoryStore
+from memory_store import Claim, MemoryStore
 from models import accepts_images, parse_provider_model
 from permissions import is_allowed
 from prompt import build_system_prompt
@@ -157,24 +157,79 @@ def make_openai_client(config: dict[str, Any], provider_slash_model: str) -> tup
     return AsyncOpenAI(base_url=provider_config["base_url"], api_key=provider_config.get("api_key", "sk-no-key-required")), model, provider_config
 
 
-async def update_user_memory(config: dict[str, Any], user_id: int, exchange: str) -> None:
+def subjects_still_writable(subjects: set[int], epochs_at_start: dict[int, int]) -> bool:
+    """True when no subject ran /forget during extraction.
+
+    A subject missing from the snapshot was never present in the conversation,
+    so its epoch cannot have moved and the claim stands.
+    """
+    return all(
+        may_write_memory(forget_epochs, subject_id, epochs_at_start[subject_id])
+        for subject_id in subjects
+        if subject_id in epochs_at_start
+    )
+
+
+def extraction_subjects(participants: set[int] | None, user_id: int, bot_id: int | None) -> set[int]:
+    return {pid for pid in (participants or set()) if pid != user_id and pid != bot_id}
+
+
+async def read_known_claim_ids(user_id: int, subjects: set[int]) -> set[int]:
+    if not subjects:
+        return set()
+    existing_claims = await memory_store.claims_by(user_id, subject_ids=subjects)
+    return {claim.id for claim in existing_claims if claim.id is not None}
+
+
+async def write_extracted_claims(user_id: int, subjects: set[int], claims: list, epochs_at_start: dict[int, int]) -> None:
+    kept = [
+        Claim(id=claim.id, source_id=user_id, subjects=claim.subjects, text=claim.text)
+        for claim in claims
+        if subjects_still_writable(claim.subjects, epochs_at_start)
+    ]
+    await memory_store.replace_claims(user_id, subjects, kept)
+
+
+async def update_user_memory(
+    config: dict[str, Any],
+    user_id: int,
+    exchange: str,
+    participants: set[int] | None = None,
+    bot_id: int | None = None,
+) -> None:
     try:
         if not memory_store or not config.get("memory_model") or not exchange:
             return
 
         openai_client, model, _ = make_openai_client(config, config["memory_model"])
-        epoch_at_start = current_epoch(forget_epochs, user_id)
+
+        subjects = extraction_subjects(participants, user_id, bot_id)
+        epochs_at_start = {uid: current_epoch(forget_epochs, uid) for uid in {user_id} | subjects}
+
         existing_memory = await memory_store.get(user_id)
-        updated = await extract_memory(
+        known_claim_ids = await read_known_claim_ids(user_id, subjects)
+
+        result = await extract_memory(
             client=openai_client,
             model=model,
             existing_memory=existing_memory,
             exchange=exchange,
             prompt=config.get("memory_extraction_prompt") or DEFAULT_EXTRACTION_PROMPT,
             max_chars=config.get("max_memory_text", 2000),
+            speaker_id=user_id,
+            bot_id=bot_id,
+            known_claim_ids=known_claim_ids,
+            max_claims=config.get("memory_max_claims_per_extraction", 20),
         )
-        if updated is not None and may_write_memory(forget_epochs, user_id, epoch_at_start):
-            await memory_store.upsert(user_id, updated)
+
+        if not may_write_memory(forget_epochs, user_id, epochs_at_start[user_id]):
+            return
+
+        if result.self_memory is not None:
+            await memory_store.upsert(user_id, result.self_memory)
+
+        if subjects:
+            await write_extracted_claims(user_id, subjects, result.claims, epochs_at_start)
     except Exception:
         logging.exception("Error while updating user memory")
 
@@ -332,6 +387,8 @@ async def on_message(new_msg: discord.Message) -> None:
     messages = []
     chain_ids = set()
     chain_entries = []
+    participant_ids: set[int] = set()
+    exchange_entries: list = []
     user_warnings = set()
     curr_msg = new_msg
 
@@ -349,6 +406,9 @@ async def on_message(new_msg: discord.Message) -> None:
                 messages.append(dict(content=content, role=curr_node.role))
                 chain_ids.add(curr_msg.id)
                 chain_entries.append((curr_msg.created_at, dict(content=content, role=curr_node.role)))
+                if curr_node.role == "user":
+                    participant_ids.add(curr_msg.author.id)
+                exchange_entries.append((curr_msg.created_at, curr_node.role, curr_node.text[:max_text]))
 
             if len(curr_node.text) > max_text:
                 user_warnings.add(f"⚠️ Max {max_text:,} characters per message")
@@ -393,6 +453,9 @@ async def on_message(new_msg: discord.Message) -> None:
 
             if content != "":
                 window_entries.append((created_at, dict(content=content, role=recent_node.role)))
+                if not recent_msg.author.bot:
+                    participant_ids.add(recent_msg.author.id)
+                exchange_entries.append((created_at, recent_node.role, recent_node.text[:max_text]))
 
         merged = sorted(chain_entries + window_entries, key=lambda entry: entry[0], reverse=True)
         messages = [entry[1] for entry in merged[:max_messages]]
@@ -481,7 +544,20 @@ async def on_message(new_msg: discord.Message) -> None:
         msg_nodes[response_msg.id].lock.release()
 
     if response_contents:
-        task = asyncio.create_task(update_user_memory(config, new_msg.author.id, f"User:\n{msg_nodes[new_msg.id].text}\n\nAssistant:\n{''.join(response_contents)}"))
+        exchange = render_exchange(
+            entries=exchange_entries,
+            limit=config.get("memory_extraction_max_messages", 8),
+            assistant_reply="".join(response_contents),
+        )
+        task = asyncio.create_task(
+            update_user_memory(
+                config,
+                new_msg.author.id,
+                exchange,
+                participants=participant_ids,
+                bot_id=discord_bot.user.id if discord_bot.user else None,
+            )
+        )
         background_tasks.add(task)
         task.add_done_callback(background_tasks.discard)
 

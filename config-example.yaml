@@ -27,6 +27,10 @@ recent_context_window_hours: 24
 memory_enabled: false
 memory_db_path: data/memory.db
 max_memory_text: 2000
+# How many recent transcript messages to feed into memory extraction.
+memory_extraction_max_messages: 8
+# Caps how many claims about other people a single extraction pass can record.
+memory_max_claims_per_extraction: 20
 # Memory extraction is off unless this is set.
 # memory_model: openai/gpt-4o-mini
 # Overrides the built-in default extraction prompt.

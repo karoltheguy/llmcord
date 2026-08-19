@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from conversation import build_user_prefix, select_recent_context, should_chain_to_previous
+from conversation import build_user_prefix, render_exchange, select_recent_context, should_chain_to_previous
 
 
 def test_public_mention_chains_to_bot_reply_for_the_same_author():
@@ -297,3 +297,55 @@ def test_limit_zero_returns_nothing():
     )
 
     assert result == []
+
+
+def test_render_exchange_sorts_ascending_and_joins_with_blank_line():
+    entries = [
+        (NOW - timedelta(minutes=1), "user", "<@111> (Alice): second"),
+        (NOW - timedelta(minutes=5), "user", "<@111> (Alice): first"),
+    ]
+
+    result = render_exchange(entries=entries, limit=10)
+
+    assert result == "<@111> (Alice): first\n\n<@111> (Alice): second"
+
+
+def test_render_exchange_limit_keeps_the_most_recent_n_oldest_first():
+    entries = [
+        (NOW - timedelta(minutes=5), "user", "<@111> (Alice): oldest"),
+        (NOW - timedelta(minutes=3), "user", "<@111> (Alice): middle"),
+        (NOW - timedelta(minutes=1), "user", "<@111> (Alice): newest"),
+    ]
+
+    result = render_exchange(entries=entries, limit=2)
+
+    assert result == "<@111> (Alice): middle\n\n<@111> (Alice): newest"
+
+
+def test_render_exchange_renders_user_verbatim_and_assistant_with_prefix():
+    entries = [
+        (NOW - timedelta(minutes=2), "user", "<@111> (Alice): hi"),
+        (NOW - timedelta(minutes=1), "assistant", "hello there"),
+    ]
+
+    result = render_exchange(entries=entries, limit=10)
+
+    assert "<@111> (Alice): hi" in result
+    assert "Assistant:\nhello there" in result
+
+
+def test_render_exchange_appends_assistant_reply_last_and_ignores_limit():
+    entries = [
+        (NOW - timedelta(minutes=5), "user", "<@111> (Alice): oldest"),
+        (NOW - timedelta(minutes=3), "user", "<@111> (Alice): middle"),
+        (NOW - timedelta(minutes=1), "user", "<@111> (Alice): newest"),
+    ]
+
+    result = render_exchange(entries=entries, limit=1, assistant_reply="the reply")
+
+    assert result == "<@111> (Alice): newest\n\nAssistant:\nthe reply"
+
+
+def test_render_exchange_empty_entries_with_and_without_reply():
+    assert render_exchange(entries=[], limit=10, assistant_reply="the reply") == "Assistant:\nthe reply"
+    assert render_exchange(entries=[], limit=10) == ""

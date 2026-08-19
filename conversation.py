@@ -6,6 +6,22 @@ def build_user_prefix(*, user_id: int, display_name: str | None, max_name: int =
     return f"<@{user_id}> ({name[:max_name]}): "
 
 
+def select_recent_context(*, candidates, now, window, limit, exclude_ids) -> list:
+    """Select up to `limit` recent, non-excluded candidates within the window, oldest-first."""
+    cutoff = now - window
+    kept = []
+    for entry in candidates:
+        if len(kept) >= limit:
+            break
+        entry_id, _author_id, created_at, _is_bot = entry
+        if created_at <= cutoff:
+            continue
+        if entry_id in exclude_ids:
+            continue
+        kept.append(entry)
+    return list(reversed(kept))
+
+
 def should_chain_to_previous(
     *,
     is_dm: bool,

@@ -1,4 +1,6 @@
-from conversation import build_user_prefix, should_chain_to_previous
+from datetime import datetime, timedelta, timezone
+
+from conversation import build_user_prefix, select_recent_context, should_chain_to_previous
 
 
 def test_public_mention_chains_to_bot_reply_for_the_same_author():
@@ -195,3 +197,103 @@ def test_build_user_prefix_strips_surrounding_whitespace():
         build_user_prefix(user_id=42, display_name="  Carol  ")
         == build_user_prefix(user_id=42, display_name="Carol")
     )
+
+
+NOW = datetime(2026, 8, 18, 12, 0, tzinfo=timezone.utc)
+WINDOW = timedelta(hours=24)
+
+
+def test_drops_candidates_older_than_the_window():
+    candidates = [
+        (1, 100, NOW - timedelta(hours=1), False),
+        (2, 100, NOW - timedelta(hours=12), False),
+        (3, 100, NOW - WINDOW, False),
+        (4, 100, NOW - timedelta(hours=30), False),
+    ]
+
+    result = select_recent_context(
+        candidates=candidates,
+        now=NOW,
+        window=WINDOW,
+        limit=10,
+        exclude_ids=set(),
+    )
+
+    assert [entry[0] for entry in result] == [2, 1]
+
+
+def test_stops_at_the_limit_keeping_the_newest():
+    candidates = [
+        (1, 100, NOW - timedelta(hours=1), False),
+        (2, 100, NOW - timedelta(hours=2), False),
+        (3, 100, NOW - timedelta(hours=3), False),
+        (4, 100, NOW - timedelta(hours=4), False),
+        (5, 100, NOW - timedelta(hours=5), False),
+    ]
+
+    result = select_recent_context(
+        candidates=candidates,
+        now=NOW,
+        window=WINDOW,
+        limit=2,
+        exclude_ids=set(),
+    )
+
+    assert len(result) == 2
+    assert [entry[0] for entry in result] == [2, 1]
+
+
+def test_skips_ids_already_in_the_chain():
+    candidates = [
+        (1, 100, NOW - timedelta(hours=1), False),
+        (2, 100, NOW - timedelta(hours=2), False),
+        (3, 100, NOW - timedelta(hours=3), False),
+    ]
+
+    result = select_recent_context(
+        candidates=candidates,
+        now=NOW,
+        window=WINDOW,
+        limit=10,
+        exclude_ids={2},
+    )
+
+    assert [entry[0] for entry in result] == [3, 1]
+
+
+def test_returns_oldest_first():
+    candidates = [
+        (1, 100, NOW - timedelta(hours=1), False),
+        (2, 100, NOW - timedelta(hours=2), False),
+        (3, 100, NOW - timedelta(hours=3), False),
+    ]
+
+    result = select_recent_context(
+        candidates=candidates,
+        now=NOW,
+        window=WINDOW,
+        limit=10,
+        exclude_ids=set(),
+    )
+
+    created_ats = [entry[2] for entry in result]
+    assert created_ats == sorted(created_ats)
+    assert [entry[0] for entry in result] == [3, 2, 1]
+
+
+def test_limit_zero_returns_nothing():
+    candidates = [
+        (1, 100, NOW - timedelta(hours=1), False),
+        (2, 100, NOW - timedelta(hours=2), False),
+        (3, 100, NOW - timedelta(hours=3), False),
+    ]
+
+    result = select_recent_context(
+        candidates=candidates,
+        now=NOW,
+        window=WINDOW,
+        limit=0,
+        exclude_ids=set(),
+    )
+
+    assert result == []

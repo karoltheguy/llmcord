@@ -1,6 +1,10 @@
+import os
 import sqlite3
+from pathlib import Path
 
-from memory_store import Claim, MemoryStore
+import pytest
+
+from memory_store import Claim, MemoryStore, MemoryStoreError
 
 
 async def test_upsert_then_get_round_trips_across_instances(tmp_path):
@@ -363,3 +367,41 @@ async def test_claims_about_can_exclude_a_source(tmp_path):
     excluded = await store.claims_about({222}, exclude_source=111)
     assert len(excluded) == 1
     assert excluded[0].source_id == 333
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permission bits")
+async def test_initialize_reports_context_when_db_cannot_be_opened(tmp_path):
+    unwritable_dir = tmp_path / "unwritable"
+    unwritable_dir.mkdir()
+    db_path = unwritable_dir / "memory.db"
+    unwritable_dir.chmod(0o500)
+    try:
+        store = MemoryStore(db_path)
+        with pytest.raises(MemoryStoreError) as exc_info:
+            await store.initialize()
+
+        message = str(exc_info.value)
+        assert str(Path(db_path).resolve()) in message
+        assert str(os.geteuid()) in message
+        assert "writable" in message.lower()
+    finally:
+        unwritable_dir.chmod(0o700)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permission bits")
+async def test_initialize_reports_context_when_parent_cannot_be_created(tmp_path):
+    unwritable_dir = tmp_path / "unwritable"
+    unwritable_dir.mkdir()
+    unwritable_dir.chmod(0o500)
+    db_path = unwritable_dir / "sub" / "memory.db"
+    try:
+        store = MemoryStore(db_path)
+        with pytest.raises(MemoryStoreError) as exc_info:
+            await store.initialize()
+
+        message = str(exc_info.value)
+        assert str(Path(db_path).resolve()) in message
+        assert str(os.geteuid()) in message
+        assert "writable" in message.lower()
+    finally:
+        unwritable_dir.chmod(0o700)

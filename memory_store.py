@@ -2,8 +2,13 @@ import asyncio
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import sqlite3
+
+
+class MemoryStoreError(RuntimeError):
+    """Raised when the memory database cannot be opened or created."""
 
 
 @dataclass
@@ -47,9 +52,24 @@ class MemoryStore:
     async def initialize(self) -> None:
         await asyncio.to_thread(self._initialize)
 
+    def _db_context(self) -> str:
+        path = self.db_path.resolve()
+        parent = path.parent
+        return (
+            f"path {path}, euid {os.geteuid()}, parent exists: {parent.exists()}, "
+            f"parent writable: {os.access(parent, os.W_OK)}"
+        )
+
     def _initialize(self) -> None:
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(self._connect()) as conn:
+        try:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise MemoryStoreError(f"cannot create the memory database directory ({self._db_context()}). In a container the mounted directory may not be owned by this UID.") from exc
+        try:
+            conn = self._connect()
+        except sqlite3.OperationalError as exc:
+            raise MemoryStoreError(f"cannot open the memory database ({self._db_context()}). In a container the mounted directory may not be owned by this UID.") from exc
+        with closing(conn):
             with conn:
                 conn.execute("CREATE TABLE IF NOT EXISTS user_memory (user_id INTEGER PRIMARY KEY, memory TEXT NOT NULL, updated_at TEXT NOT NULL)")
                 conn.execute(

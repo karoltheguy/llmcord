@@ -91,6 +91,10 @@ Or run local models with:
    ```bash
    docker compose up
    ```
+   Memory is kept in a named `llmcord-data` volume, so the same compose file
+   works under Docker and rootless podman. If you are upgrading from a version
+   that bind-mounted `./data`, copy your existing `data/memory.db` into the
+   volume before starting.
 
 ## Configuration
 
@@ -117,6 +121,13 @@ Or run local models with:
 | **providers** | Add the LLM providers you want to use, each with a `base_url` and optional `api_key` entry. Popular providers (`openrouter`, `openai`, `ollama`, etc.) are already included.<br /><br />**Only supports OpenAI /v1/chat/completions compatible APIs.**<br /><br />**Some providers may need `extra_headers` / `extra_query` / `extra_body` entries for extra HTTP data. See the included `azure-openai` provider for an example.** |
 | **models** | Add the models you want to use in `<provider>/<model>: <parameters>` format (examples are included). When you run `/model` these models will show up as autocomplete suggestions.<br /><br />**Refer to each provider's documentation for supported parameters.**<br /><br />**The first model in your `models` list will be the default model at startup.**<br /><br />**Some vision models may need `:vision` added to the end of their name to enable image support.** |
 | **system_prompt** | Write anything you want to customize the bot's behavior!<br /><br />**Leave blank for no system prompt.**<br /><br />**You can use the `{date}` and `{time}` tags in your system prompt to insert the current date and time, based on your host computer's time zone.**<br /><br />**It is recommended to include something like `"User messages are prefixed with their Discord ID as <@ID>. Use this format to mention users."` in your system prompt to help the bot understand the user message format.** |
+
+### Memory settings
+
+| Setting | Description |
+| --- | --- |
+| **memory_enabled** | Set to `true` to let the bot remember facts about users across conversations, stored in a local SQLite database.<br /><br />Default: `false` |
+| **memory_db_path** | Path to the SQLite database file used when `memory_enabled` is `true`.<br /><br />Default: `data/memory.db`<br /><br />**In the container `/app` is mounted read-only, so this must stay inside `data/`.** |
 
 ## Notes
 

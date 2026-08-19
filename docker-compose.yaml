@@ -7,6 +7,12 @@ services:
       - path: .env
         required: false
     volumes:
-      - ./:/app:ro
-      # The bind above is read-only, so memory needs its own writable mount.
-      - ./data:/app/data
+      # Relabelled with z so SELinux hosts can read the source mount.
+      - ./:/app:ro,z
+      # The bind above is read-only, so memory needs its own writable mount. A
+      # named volume works the same under Docker and rootless podman, where a
+      # host bind would land outside the container user's UID mapping.
+      - llmcord-data:/app/data
+
+volumes:
+  llmcord-data:

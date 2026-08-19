@@ -170,6 +170,26 @@ def subjects_still_writable(subjects: set[int], epochs_at_start: dict[int, int])
     )
 
 
+def extraction_subjects(participants: set[int] | None, user_id: int, bot_id: int | None) -> set[int]:
+    return {pid for pid in (participants or set()) if pid != user_id and pid != bot_id}
+
+
+async def read_known_claim_ids(user_id: int, subjects: set[int]) -> set[int]:
+    if not subjects:
+        return set()
+    existing_claims = await memory_store.claims_by(user_id, subject_ids=subjects)
+    return {claim.id for claim in existing_claims if claim.id is not None}
+
+
+async def write_extracted_claims(user_id: int, subjects: set[int], claims: list, epochs_at_start: dict[int, int]) -> None:
+    kept = [
+        Claim(id=claim.id, source_id=user_id, subjects=claim.subjects, text=claim.text)
+        for claim in claims
+        if subjects_still_writable(claim.subjects, epochs_at_start)
+    ]
+    await memory_store.replace_claims(user_id, subjects, kept)
+
+
 async def update_user_memory(
     config: dict[str, Any],
     user_id: int,
@@ -183,14 +203,11 @@ async def update_user_memory(
 
         openai_client, model, _ = make_openai_client(config, config["memory_model"])
 
-        subjects = {pid for pid in (participants or set()) if pid != user_id and pid != bot_id}
-
+        subjects = extraction_subjects(participants, user_id, bot_id)
         epochs_at_start = {uid: current_epoch(forget_epochs, uid) for uid in {user_id} | subjects}
 
         existing_memory = await memory_store.get(user_id)
-
-        existing_claims = await memory_store.claims_by(user_id, subject_ids=subjects) if subjects else []
-        known_claim_ids = {claim.id for claim in existing_claims if claim.id is not None}
+        known_claim_ids = await read_known_claim_ids(user_id, subjects)
 
         result = await extract_memory(
             client=openai_client,
@@ -205,18 +222,14 @@ async def update_user_memory(
             max_claims=config.get("memory_max_claims_per_extraction", 20),
         )
 
-        speaker_may_write = may_write_memory(forget_epochs, user_id, epochs_at_start[user_id])
+        if not may_write_memory(forget_epochs, user_id, epochs_at_start[user_id]):
+            return
 
-        if result.self_memory is not None and speaker_may_write:
+        if result.self_memory is not None:
             await memory_store.upsert(user_id, result.self_memory)
 
-        if subjects and speaker_may_write:
-            kept = [
-                Claim(id=claim.id, source_id=user_id, subjects=claim.subjects, text=claim.text)
-                for claim in result.claims
-                if subjects_still_writable(claim.subjects, epochs_at_start)
-            ]
-            await memory_store.replace_claims(user_id, subjects, kept)
+        if subjects:
+            await write_extracted_claims(user_id, subjects, result.claims, epochs_at_start)
     except Exception:
         logging.exception("Error while updating user memory")
 

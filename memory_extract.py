@@ -65,6 +65,42 @@ def _parse_int(value: Any) -> int | None:
     return None
 
 
+def _claim_subjects(raw_subjects: Any, speaker_id: int | None, bot_id: int | None) -> set[int]:
+    if not isinstance(raw_subjects, list):
+        return set()
+    subjects = {parsed for value in raw_subjects if (parsed := _parse_int(value)) is not None}
+    subjects.discard(speaker_id)
+    subjects.discard(bot_id)
+    return subjects
+
+
+def _clean_claim_text(value: Any, max_chars: int) -> str | None:
+    if not isinstance(value, str) or not value.strip() or is_empty_response(value):
+        return None
+    return value.strip()[:max_chars]
+
+
+def _resolve_claim_id(raw_id: Any, known_ids: set[int]) -> int | None:
+    if isinstance(raw_id, bool) or not isinstance(raw_id, int):
+        return None
+    return raw_id if raw_id in known_ids else None
+
+
+def _sanitize_claim(raw: Any, *, speaker_id: int | None, bot_id: int | None, known_ids: set[int], max_chars: int) -> ExtractedClaim | None:
+    if not isinstance(raw, dict):
+        return None
+
+    subjects = _claim_subjects(raw.get("subjects"), speaker_id, bot_id)
+    if not subjects:
+        return None
+
+    text = _clean_claim_text(raw.get("text"), max_chars)
+    if text is None:
+        return None
+
+    return ExtractedClaim(id=_resolve_claim_id(raw.get("id"), known_ids), subjects=subjects, text=text)
+
+
 def _sanitize_claims(
     raw_claims: list,
     *,
@@ -75,30 +111,11 @@ def _sanitize_claims(
     max_claims: int,
 ) -> list[ExtractedClaim]:
     known_ids = known_claim_ids or set()
-    claims: list[ExtractedClaim] = []
-    for raw in raw_claims:
-        if not isinstance(raw, dict):
-            continue
-
-        raw_subjects = raw.get("subjects")
-        if not isinstance(raw_subjects, list):
-            continue
-        subjects = {parsed for value in raw_subjects if (parsed := _parse_int(value)) is not None}
-        subjects.discard(speaker_id)
-        subjects.discard(bot_id)
-        if not subjects:
-            continue
-
-        text = raw.get("text")
-        if not isinstance(text, str) or not text.strip() or is_empty_response(text):
-            continue
-        text = text.strip()[:max_chars]
-
-        raw_id = raw.get("id")
-        claim_id = raw_id if isinstance(raw_id, int) and not isinstance(raw_id, bool) and raw_id in known_ids else None
-
-        claims.append(ExtractedClaim(id=claim_id, subjects=subjects, text=text))
-
+    claims = [
+        claim
+        for raw in raw_claims
+        if (claim := _sanitize_claim(raw, speaker_id=speaker_id, bot_id=bot_id, known_ids=known_ids, max_chars=max_chars)) is not None
+    ]
     return claims[:max_claims]
 
 

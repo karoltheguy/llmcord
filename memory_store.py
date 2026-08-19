@@ -92,16 +92,44 @@ class MemoryStore:
     async def replace_claims(self, source_id: int, scope_subject_ids: set[int], claims: list[Claim]) -> None:
         await asyncio.to_thread(self._replace_claims, source_id, scope_subject_ids, claims)
 
+    def _in_scope_claim_ids(self, conn: sqlite3.Connection, source_id: int, scope_subject_ids: set[int]) -> set[int]:
+        if not scope_subject_ids:
+            return set()
+        cursor = conn.execute(
+            f"SELECT id FROM claims WHERE source_id = ? AND {_subjects_intersect_sql(scope_subject_ids)}",
+            (source_id, *scope_subject_ids),
+        )
+        return {row[0] for row in cursor.fetchall()}
+
+    def _update_echoed_claim(self, conn: sqlite3.Connection, claim: Claim, source_id: int, now: str) -> None:
+        conn.execute(
+            "UPDATE claims SET text = ?, updated_at = ? WHERE id = ? AND source_id = ?",
+            (claim.text, now, claim.id, source_id),
+        )
+        conn.execute(
+            "DELETE FROM claim_subjects WHERE claim_id = ?",
+            (claim.id,),
+        )
+        conn.executemany(
+            "INSERT INTO claim_subjects (claim_id, subject_id) VALUES (?, ?)",
+            [(claim.id, subject_id) for subject_id in claim.subjects],
+        )
+
+    def _insert_new_claim(self, conn: sqlite3.Connection, claim: Claim, now: str) -> None:
+        cursor = conn.execute(
+            "INSERT INTO claims (source_id, text, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (claim.source_id, claim.text, now, now),
+        )
+        claim_id = cursor.lastrowid
+        conn.executemany(
+            "INSERT INTO claim_subjects (claim_id, subject_id) VALUES (?, ?)",
+            [(claim_id, subject_id) for subject_id in claim.subjects],
+        )
+
     def _replace_claims(self, source_id: int, scope_subject_ids: set[int], claims: list[Claim]) -> None:
         with closing(self._connect()) as conn:
             with conn:
-                in_scope_ids: set[int] = set()
-                if scope_subject_ids:
-                    cursor = conn.execute(
-                        f"SELECT id FROM claims WHERE source_id = ? AND {_subjects_intersect_sql(scope_subject_ids)}",
-                        (source_id, *scope_subject_ids),
-                    )
-                    in_scope_ids = {row[0] for row in cursor.fetchall()}
+                in_scope_ids = self._in_scope_claim_ids(conn, source_id, scope_subject_ids)
 
                 echoed_claims = [claim for claim in claims if claim.id is not None and claim.id in in_scope_ids]
                 new_claims = [claim for claim in claims if not (claim.id is not None and claim.id in in_scope_ids)]
@@ -117,29 +145,10 @@ class MemoryStore:
                 now = datetime.now(timezone.utc).isoformat()
 
                 for claim in echoed_claims:
-                    conn.execute(
-                        "UPDATE claims SET text = ?, updated_at = ? WHERE id = ? AND source_id = ?",
-                        (claim.text, now, claim.id, source_id),
-                    )
-                    conn.execute(
-                        "DELETE FROM claim_subjects WHERE claim_id = ?",
-                        (claim.id,),
-                    )
-                    conn.executemany(
-                        "INSERT INTO claim_subjects (claim_id, subject_id) VALUES (?, ?)",
-                        [(claim.id, subject_id) for subject_id in claim.subjects],
-                    )
+                    self._update_echoed_claim(conn, claim, source_id, now)
 
                 for claim in new_claims:
-                    cursor = conn.execute(
-                        "INSERT INTO claims (source_id, text, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                        (claim.source_id, claim.text, now, now),
-                    )
-                    claim_id = cursor.lastrowid
-                    conn.executemany(
-                        "INSERT INTO claim_subjects (claim_id, subject_id) VALUES (?, ?)",
-                        [(claim_id, subject_id) for subject_id in claim.subjects],
-                    )
+                    self._insert_new_claim(conn, claim, now)
 
     async def claims_by(self, source_id: int, subject_ids: set[int] | None = None, limit: int = 50) -> list[Claim]:
         return await asyncio.to_thread(self._claims_by, source_id, subject_ids, limit)

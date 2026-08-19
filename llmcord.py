@@ -179,27 +179,39 @@ async def update_user_memory(config: dict[str, Any], user_id: int, exchange: str
         logging.exception("Error while updating user memory")
 
 
-async def build_msg_node(curr_node: MsgNode, curr_msg: discord.Message) -> None:
-    cleaned_content = curr_msg.content.removeprefix(discord_bot.user.mention).lstrip()
+def select_good_attachments(curr_msg: discord.Message) -> list:
+    return [att for att in curr_msg.attachments if att.content_type and any(att.content_type.startswith(x) for x in ("text", "image"))]
 
-    good_attachments = [att for att in curr_msg.attachments if att.content_type and any(att.content_type.startswith(x) for x in ("text", "image"))]
 
-    attachment_responses = await asyncio.gather(*[httpx_client.get(att.url) for att in good_attachments])
-
-    curr_node.role = "assistant" if curr_msg.author == discord_bot.user else "user"
-
-    curr_node.text = "\n".join(
+def node_text(cleaned_content: str, curr_msg: discord.Message, good_attachments: list, attachment_responses: list) -> str:
+    return "\n".join(
         ([cleaned_content] if cleaned_content else [])
         + ["\n".join(filter(None, (embed.title, embed.description, embed.footer.text))) for embed in curr_msg.embeds]
         + [component.content for component in curr_msg.components if component.type == discord.ComponentType.text_display]
         + [resp.text for att, resp in zip(good_attachments, attachment_responses) if att.content_type.startswith("text")]
     )
 
-    curr_node.images = [
+
+def node_images(good_attachments: list, attachment_responses: list) -> list:
+    return [
         dict(type="image_url", image_url=dict(url=f"data:{att.content_type};base64,{b64encode(resp.content).decode('utf-8')}"))
         for att, resp in zip(good_attachments, attachment_responses)
         if att.content_type.startswith("image")
     ]
+
+
+async def build_msg_node(curr_node: MsgNode, curr_msg: discord.Message) -> None:
+    cleaned_content = curr_msg.content.removeprefix(discord_bot.user.mention).lstrip()
+
+    good_attachments = select_good_attachments(curr_msg)
+
+    attachment_responses = await asyncio.gather(*[httpx_client.get(att.url) for att in good_attachments])
+
+    curr_node.role = "assistant" if curr_msg.author == discord_bot.user else "user"
+
+    curr_node.text = node_text(cleaned_content, curr_msg, good_attachments, attachment_responses)
+
+    curr_node.images = node_images(good_attachments, attachment_responses)
 
     if curr_node.role == "user" and (curr_node.text or curr_node.images):
         curr_node.text = build_user_prefix(
@@ -216,36 +228,57 @@ def node_content(node: MsgNode, max_text: int, max_images: int):
     return node.text[:max_text]
 
 
+def answered_author_id(prev_msg: discord.Message) -> int | None:
+    prev_node = msg_nodes.get(prev_msg.id)
+    prev_parent = prev_node.parent_msg if prev_node else None
+    return prev_parent.author.id if prev_parent else None
+
+
+async def chained_previous_msg(curr_msg: discord.Message, config: dict[str, Any]):
+    if curr_msg.reference is not None:
+        return None
+
+    prev_msg_in_channel = ([m async for m in curr_msg.channel.history(before=curr_msg, limit=1)] or [None])[0]
+    if not prev_msg_in_channel:
+        return None
+
+    if prev_msg_in_channel.type not in (discord.MessageType.default, discord.MessageType.reply):
+        return None
+
+    if should_chain_to_previous(
+        is_dm=curr_msg.channel.type == discord.ChannelType.private,
+        content_mentions_bot=discord_bot.user.mention in curr_msg.content,
+        prev_author_id=prev_msg_in_channel.author.id,
+        curr_author_id=curr_msg.author.id,
+        bot_id=discord_bot.user.id,
+        prev_answered_author_id=answered_author_id(prev_msg_in_channel),
+        implicit_public_chaining=config.get("implicit_public_chaining", True),
+    ):
+        return prev_msg_in_channel
+
+    return None
+
+
+async def explicit_parent_msg(curr_msg: discord.Message):
+    is_public_thread = curr_msg.channel.type == discord.ChannelType.public_thread
+    parent_is_thread_start = is_public_thread and curr_msg.reference is None and curr_msg.channel.parent.type == discord.ChannelType.text
+
+    if parent_msg_id := curr_msg.channel.id if parent_is_thread_start else getattr(curr_msg.reference, "message_id", None):
+        if parent_is_thread_start:
+            return curr_msg.channel.starter_message or await curr_msg.channel.parent.fetch_message(parent_msg_id)
+        return curr_msg.reference.cached_message or await curr_msg.channel.fetch_message(parent_msg_id)
+
+    return None
+
+
 async def resolve_parent_msg(curr_node: MsgNode, curr_msg: discord.Message, config: dict[str, Any]) -> None:
     try:
-        if (
-            curr_msg.reference is None
-            and (prev_msg_in_channel := ([m async for m in curr_msg.channel.history(before=curr_msg, limit=1)] or [None])[0])
-            and prev_msg_in_channel.type in (discord.MessageType.default, discord.MessageType.reply)
-            and should_chain_to_previous(
-                is_dm=curr_msg.channel.type == discord.ChannelType.private,
-                content_mentions_bot=discord_bot.user.mention in curr_msg.content,
-                prev_author_id=prev_msg_in_channel.author.id,
-                curr_author_id=curr_msg.author.id,
-                bot_id=discord_bot.user.id,
-                prev_answered_author_id=(
-                    prev_parent.author.id
-                    if (prev_node := msg_nodes.get(prev_msg_in_channel.id)) and (prev_parent := prev_node.parent_msg)
-                    else None
-                ),
-                implicit_public_chaining=config.get("implicit_public_chaining", True),
-            )
-        ):
+        if prev_msg_in_channel := await chained_previous_msg(curr_msg, config):
             curr_node.parent_msg = prev_msg_in_channel
         else:
-            is_public_thread = curr_msg.channel.type == discord.ChannelType.public_thread
-            parent_is_thread_start = is_public_thread and curr_msg.reference is None and curr_msg.channel.parent.type == discord.ChannelType.text
-
-            if parent_msg_id := curr_msg.channel.id if parent_is_thread_start else getattr(curr_msg.reference, "message_id", None):
-                if parent_is_thread_start:
-                    curr_node.parent_msg = curr_msg.channel.starter_message or await curr_msg.channel.parent.fetch_message(parent_msg_id)
-                else:
-                    curr_node.parent_msg = curr_msg.reference.cached_message or await curr_msg.channel.fetch_message(parent_msg_id)
+            parent_msg = await explicit_parent_msg(curr_msg)
+            if parent_msg is not None:
+                curr_node.parent_msg = parent_msg
 
     except (discord.NotFound, discord.HTTPException):
         logging.exception("Error fetching next message in the chain")
